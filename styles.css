@@ -506,6 +506,13 @@ body {
   border: 1px solid var(--border);
 }
 .btn-secondary:hover { background: var(--border); }
+.btn-import {
+  background: #16a34a;
+  color: #fff;
+  font-size: .82rem;
+  padding: 7px 14px;
+}
+.btn-import:hover { background: #15803d; transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn-danger  { background: var(--danger); color: #fff; }
 .btn-danger:hover  { background: #dc2626; }
 .btn-success { background: var(--success); color: #fff; }
@@ -662,6 +669,51 @@ body {
 }
 .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
 .empty-state p { font-size: .9rem; }
+
+/* ============================================
+   IMPORT EXCEL
+   ============================================ */
+.import-summary { padding: 8px 0; }
+.import-total {
+  font-size: 1.05rem;
+  color: var(--success);
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: var(--success-light);
+  border-radius: var(--radius-sm);
+}
+.import-detail {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.import-detail li {
+  padding: 8px 14px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary);
+}
+.import-errors-title {
+  font-size: .9rem;
+  color: var(--warning);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.import-errors {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.import-errors li {
+  font-size: .82rem;
+  color: var(--danger);
+  padding: 4px 10px;
+  background: var(--danger-light);
+  border-radius: var(--radius-sm);
+}
 
 /* ============================================
    RESPONSIVE

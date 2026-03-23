@@ -821,6 +821,154 @@ function executeDelete() {
 }
 
 // ============================================
+// IMPORT EXCEL
+// ============================================
+function importExcel(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const counts = { stock: 0, ventes: 0, vendeurs: 0, charges: 0, dettes: 0 };
+      const errors = [];
+
+      // Helper: convertir valeur date Excel en string YYYY-MM-DD
+      function toDateStr(val) {
+        if (!val) return today();
+        if (val instanceof Date) {
+          return val.toISOString().slice(0, 10);
+        }
+        if (typeof val === 'string') {
+          // Accepte DD/MM/YYYY ou YYYY-MM-DD
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+            const [d, m, y] = val.split('/');
+            return `${y}-${m}-${d}`;
+          }
+          return val.slice(0, 10);
+        }
+        // Numéro série Excel
+        if (typeof val === 'number') {
+          const d = XLSX.SSF.parse_date_code(val);
+          if (d) {
+            const mm = String(d.m).padStart(2, '0');
+            const dd = String(d.d).padStart(2, '0');
+            return `${d.y}-${mm}-${dd}`;
+          }
+        }
+        return today();
+      }
+
+      // ---- STOCK ----
+      if (workbook.SheetNames.includes('Stock')) {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Stock']);
+        rows.forEach((row, i) => {
+          const nom = String(row['Produit'] || row['produit'] || '').trim();
+          const qty = parseFloat(row['Quantite'] || row['Quantité'] || row['qty'] || 0);
+          const pa = parseFloat(row['Prix_Achat'] || row['Prix Achat'] || row['pa'] || 0);
+          const pv = parseFloat(row['Prix_Vente'] || row['Prix Vente'] || row['pv'] || 0);
+          if (!nom) { errors.push(`Stock ligne ${i + 2} : Produit manquant`); return; }
+          // Éviter les doublons (même nom)
+          const existing = DB.getAll('stock').find(s => s.nom.toLowerCase() === nom.toLowerCase());
+          if (existing) {
+            DB.update('stock', existing.id, { qty: existing.qty + qty, pa, pv });
+          } else {
+            DB.insert('stock', { nom, qty, pa, pv });
+          }
+          counts.stock++;
+        });
+      }
+
+      // ---- VENDEURS ----
+      if (workbook.SheetNames.includes('Vendeurs')) {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Vendeurs']);
+        rows.forEach((row, i) => {
+          const nom = String(row['Nom'] || row['nom'] || '').trim();
+          if (!nom) { errors.push(`Vendeurs ligne ${i + 2} : Nom manquant`); return; }
+          const exists = DB.getAll('vendeurs').find(v => v.nom.toLowerCase() === nom.toLowerCase());
+          if (!exists) {
+            DB.insert('vendeurs', { nom });
+            counts.vendeurs++;
+          }
+        });
+      }
+
+      // ---- VENTES ----
+      if (workbook.SheetNames.includes('Ventes')) {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Ventes']);
+        rows.forEach((row, i) => {
+          const date = toDateStr(row['Date'] || row['date']);
+          const produit = String(row['Produit'] || row['produit'] || '').trim();
+          const qty = parseInt(row['Quantite'] || row['Quantité'] || row['qty'] || 0);
+          const pa = parseFloat(row['Prix_Achat'] || row['Prix Achat'] || row['pa'] || 0);
+          const pv = parseFloat(row['Prix_Vente'] || row['Prix Vente'] || row['pv'] || 0);
+          const vendeur = String(row['Vendeur'] || row['vendeur'] || '').trim();
+          if (!produit || !qty || !pv) { errors.push(`Ventes ligne ${i + 2} : données incomplètes`); return; }
+          const gain = (pv - pa) * qty;
+          DB.insert('ventes', { date, produit, qty, pa, pv, gain, vendeur });
+          counts.ventes++;
+        });
+      }
+
+      // ---- CHARGES ----
+      if (workbook.SheetNames.includes('Charges')) {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Charges']);
+        rows.forEach((row, i) => {
+          const date = toDateStr(row['Date'] || row['date']);
+          const type = String(row['Type'] || row['type'] || 'Autre').trim();
+          const montant = parseFloat(row['Montant'] || row['montant'] || 0);
+          const desc = String(row['Description'] || row['desc'] || '').trim();
+          if (!montant || montant <= 0) { errors.push(`Charges ligne ${i + 2} : Montant invalide`); return; }
+          DB.insert('charges', { date, type, montant, desc });
+          counts.charges++;
+        });
+      }
+
+      // ---- DETTES ----
+      if (workbook.SheetNames.includes('Dettes')) {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Dettes']);
+        rows.forEach((row, i) => {
+          const nom = String(row['Nom'] || row['nom'] || '').trim();
+          const type = String(row['Type'] || row['type'] || '').trim();
+          const montant = parseFloat(row['Montant'] || row['montant'] || 0);
+          const date = toDateStr(row['Date'] || row['date']);
+          const statut = String(row['Statut'] || row['statut'] || 'Non payé').trim();
+          if (!nom || !type || !montant) { errors.push(`Dettes ligne ${i + 2} : données incomplètes`); return; }
+          DB.insert('dettes', { nom, type, montant, date, statut });
+          counts.dettes++;
+        });
+      }
+
+      // Afficher résultats
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      let html = `<div class="import-summary">`;
+      html += `<p class="import-total">✅ <strong>${total} enregistrement(s)</strong> importé(s) avec succès</p>`;
+      html += `<ul class="import-detail">`;
+      if (counts.stock)    html += `<li>📦 Stock : <strong>${counts.stock}</strong> produit(s)</li>`;
+      if (counts.vendeurs) html += `<li>👨‍💼 Vendeurs : <strong>${counts.vendeurs}</strong> vendeur(s)</li>`;
+      if (counts.ventes)   html += `<li>🛒 Ventes : <strong>${counts.ventes}</strong> vente(s)</li>`;
+      if (counts.charges)  html += `<li>💸 Charges : <strong>${counts.charges}</strong> charge(s)</li>`;
+      if (counts.dettes)   html += `<li>🤝 Dettes : <strong>${counts.dettes}</strong> dette(s)</li>`;
+      html += `</ul>`;
+      if (errors.length > 0) {
+        html += `<p class="import-errors-title">⚠️ ${errors.length} ligne(s) ignorée(s) :</p>`;
+        html += `<ul class="import-errors">${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+      }
+      html += `</div>`;
+
+      document.getElementById('importResults').innerHTML = html;
+      showModal('modalImport');
+      navigateTo('dashboard');
+      if (total > 0) toast(`${total} enregistrement(s) importé(s) !`);
+
+    } catch (err) {
+      toast('Erreur lors de la lecture du fichier Excel.', 'error');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ============================================
 // HELPERS
 // ============================================
 function formatDate(d) {
@@ -940,6 +1088,16 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('filterStockStatus').value = 'Rupture';
       renderStock();
     }, 100);
+  });
+
+  // Import Excel
+  document.getElementById('btnImportExcel').addEventListener('click', () => {
+    document.getElementById('excelFileInput').value = '';
+    document.getElementById('excelFileInput').click();
+  });
+  document.getElementById('excelFileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) importExcel(file);
   });
 
   // Charger la page initiale

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boutique Pro – Gestion Commerciale</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">🏪</span>
+    <span class="brand-name">Boutique Pro</span>
+  </div>
+  <ul class="nav-list">
+    <li class="nav-item active" data-page="dashboard">
+      <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+    </li>
+    <li class="nav-item" data-page="ventes">
+      <span class="nav-icon">🛒</span><span class="nav-label">Ventes</span>
+    </li>
+    <li class="nav-item" data-page="stock">
+      <span class="nav-icon">📦</span><span class="nav-label">Stock</span>
+    </li>
+    <li class="nav-item" data-page="vendeurs">
+      <span class="nav-icon">👨‍💼</span><span class="nav-label">Vendeurs</span>
+    </li>
+    <li class="nav-item" data-page="charges">
+      <span class="nav-icon">💸</span><span class="nav-label">Charges</span>
+    </li>
+    <li class="nav-item" data-page="dettes">
+      <span class="nav-icon">🤝</span><span class="nav-label">Dettes</span>
+    </li>
+  </ul>
+  <div class="sidebar-footer">
+    <span class="version">v1.0.0</span>
+  </div>
+</nav>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main class="main-content">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <div class="topbar-title" id="pageTitle">Dashboard</div>
+    <div class="topbar-right">
+      <span class="date-display" id="dateDisplay"></span>
+      <div class="alert-bell" id="alertBell" title="Alertes">
+        🔔 <span class="alert-badge" id="alertBadge">0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Alert Banner -->
+  <div class="alert-banner" id="alertBanner" style="display:none;"></div>
+
+  <!-- ===== PAGES ===== -->
+
+  <!-- PAGE: DASHBOARD -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <h2>Tableau de Bord</h2>
+      <p>Vue d'ensemble de votre boutique</p>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Chiffre d'Affaires</div>
+          <div class="kpi-value" id="kpi-ca">0 FCFA</div>
+        </div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-icon">📈</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Gain Total</div>
+          <div class="kpi-value" id="kpi-gain">0 FCFA</div>
+        </div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-icon">🛍️</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Produits Vendus</div>
+          <div class="kpi-value" id="kpi-sold">0</div>
+        </div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-icon">💸</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Total Charges</div>
+          <div class="kpi-value" id="kpi-charges">0 FCFA</div>
+        </div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Produits en Stock</div>
+          <div class="kpi-value" id="kpi-stock">0</div>
+        </div>
+      </div>
+      <div class="kpi-card dark">
+        <div class="kpi-icon">⚠️</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Ruptures de Stock</div>
+          <div class="kpi-value" id="kpi-rupture">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Comparison -->
+    <div class="section-row">
+      <div class="card comparison-card">
+        <div class="card-header">
+          <h3>Comparaison Mensuelle</h3>
+        </div>
+        <div class="comparison-grid">
+          <div class="comp-item">
+            <div class="comp-label">Ventes ce mois</div>
+            <div class="comp-value" id="comp-current-sales">0 FCFA</div>
+          </div>
+          <div class="comp-arrow" id="comp-arrow-sales">→</div>
+          <div class="comp-item">
+            <div class="comp-label">Ventes mois précédent</div>
+            <div class="comp-value" id="comp-prev-sales">0 FCFA</div>
+          </div>
+          <div class="comp-badge" id="comp-badge-sales">0%</div>
+        </div>
+        <div class="comparison-grid">
+          <div class="comp-item">
+            <div class="comp-label">Gains ce mois</div>
+            <div class="comp-value" id="comp-current-gain">0 FCFA</div>
+          </div>
+          <div class="comp-arrow" id="comp-arrow-gain">→</div>
+          <div class="comp-item">
+            <div class="comp-label">Gains mois précédent</div>
+            <div class="comp-value" id="comp-prev-gain">0 FCFA</div>
+          </div>
+          <div class="comp-badge" id="comp-badge-gain">0%</div>
+        </div>
+      </div>
+
+      <!-- Net Profit -->
+      <div class="card net-card">
+        <div class="card-header"><h3>Bénéfice Net</h3></div>
+        <div class="net-value" id="net-profit">0 FCFA</div>
+        <div class="net-subtitle">Gains – Charges</div>
+        <div class="net-detail">
+          <span>Dettes non réglées : <strong id="unpaid-debts">0</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="card chart-card">
+        <div class="card-header"><h3>Ventes par Mois</h3></div>
+        <canvas id="chartVentes" height="250"></canvas>
+      </div>
+      <div class="card chart-card">
+        <div class="card-header"><h3>Gains par Mois</h3></div>
+        <canvas id="chartGains" height="250"></canvas>
+      </div>
+    </div>
+
+    <!-- Recent Sales & Low Stock -->
+    <div class="section-row">
+      <div class="card table-card">
+        <div class="card-header"><h3>Dernières Ventes</h3></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Produit</th><th>Qté</th><th>Gain</th></tr></thead>
+            <tbody id="recentSalesBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card table-card">
+        <div class="card-header"><h3>⚠️ Stock Faible</h3></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Produit</th><th>Qté</th><th>Statut</th></tr></thead>
+            <tbody id="lowStockBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: VENTES -->
+  <section class="page" id="page-ventes">
+    <div class="page-header">
+      <h2>Gestion des Ventes</h2>
+      <button class="btn btn-primary" id="btnAddVente">+ Nouvelle Vente</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-bar">
+      <input type="month" id="filterVenteMonth" class="filter-input" />
+      <input type="text" id="filterVenteSearch" class="filter-input" placeholder="Rechercher produit / vendeur..." />
+      <button class="btn btn-secondary" id="filterVenteReset">Réinitialiser</button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-row">
+      <div class="summary-card green"><span>CA Filtré</span><strong id="vente-ca-filtered">0 FCFA</strong></div>
+      <div class="summary-card blue"><span>Gain Filtré</span><strong id="vente-gain-filtered">0 FCFA</strong></div>
+      <div class="summary-card purple"><span>Qtés Vendues</span><strong id="vente-qty-filtered">0</strong></div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table" id="ventesTable">
+          <thead>
+            <tr>
+              <th>Date</th><th>Produit</th><th>Qté</th>
+              <th>Prix Achat</th><th>Prix Vente</th><th>Gain</th>
+              <th>Vendeur</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ventesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: STOCK -->
+  <section class="page" id="page-stock">
+    <div class="page-header">
+      <h2>Gestion du Stock</h2>
+      <button class="btn btn-primary" id="btnAddStock">+ Ajouter Produit</button>
+    </div>
+
+    <div class="summary-row">
+      <div class="summary-card green"><span>Produits Disponibles</span><strong id="stock-dispo">0</strong></div>
+      <div class="summary-card red"><span>En Rupture</span><strong id="stock-rupture">0</strong></div>
+      <div class="summary-card blue"><span>Valeur Stock Total</span><strong id="stock-valeur">0 FCFA</strong></div>
+    </div>
+
+    <div class="filters-bar">
+      <select id="filterStockStatus" class="filter-input">
+        <option value="">Tous les statuts</option>
+        <option value="Disponible">Disponible</option>
+        <option value="Rupture">Rupture</option>
+      </select>
+      <input type="text" id="filterStockSearch" class="filter-input" placeholder="Rechercher produit..." />
+      <button class="btn btn-secondary" id="filterStockReset">Réinitialiser</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Produit</th><th>Qté Disponible</th><th>Prix Achat</th>
+              <th>Prix Vente</th><th>Marge</th><th>Statut</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="stockBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: VENDEURS -->
+  <section class="page" id="page-vendeurs">
+    <div class="page-header">
+      <h2>Gestion des Vendeurs</h2>
+      <button class="btn btn-primary" id="btnAddVendeur">+ Ajouter Vendeur</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Vendeur</th><th>Produits Attribués</th><th>Qtés Données</th>
+              <th>Montant Généré</th><th>Performance</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="vendeursBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: CHARGES -->
+  <section class="page" id="page-charges">
+    <div class="page-header">
+      <h2>Gestion des Charges</h2>
+      <button class="btn btn-primary" id="btnAddCharge">+ Ajouter Charge</button>
+    </div>
+
+    <div class="summary-row">
+      <div class="summary-card red"><span>Total Charges</span><strong id="charges-total">0 FCFA</strong></div>
+      <div class="summary-card orange"><span>Ce Mois</span><strong id="charges-month">0 FCFA</strong></div>
+    </div>
+
+    <div class="filters-bar">
+      <input type="month" id="filterChargeMonth" class="filter-input" />
+      <select id="filterChargeType" class="filter-input">
+        <option value="">Tous les types</option>
+        <option value="Courant">Courant</option>
+        <option value="Location">Location</option>
+        <option value="Réparation">Réparation</option>
+        <option value="Salaire">Salaire</option>
+        <option value="Autre">Autre</option>
+      </select>
+      <button class="btn btn-secondary" id="filterChargeReset">Réinitialiser</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>Type</th><th>Montant</th><th>Description</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="chargesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: DETTES -->
+  <section class="page" id="page-dettes">
+    <div class="page-header">
+      <h2>Gestion des Dettes</h2>
+      <button class="btn btn-primary" id="btnAddDette">+ Ajouter Dette</button>
+    </div>
+
+    <div class="summary-row">
+      <div class="summary-card green"><span>Clients Doivent</span><strong id="dette-client">0 FCFA</strong></div>
+      <div class="summary-card red"><span>Boutique Doit</span><strong id="dette-boutique">0 FCFA</strong></div>
+      <div class="summary-card orange"><span>Non Réglées</span><strong id="dette-unpaid">0</strong></div>
+    </div>
+
+    <div class="filters-bar">
+      <select id="filterDetteType" class="filter-input">
+        <option value="">Tous les types</option>
+        <option value="Client doit">Client doit</option>
+        <option value="Boutique doit">Boutique doit</option>
+      </select>
+      <select id="filterDetteStatus" class="filter-input">
+        <option value="">Tous les statuts</option>
+        <option value="Non payé">Non payé</option>
+        <option value="Payé">Payé</option>
+      </select>
+      <button class="btn btn-secondary" id="filterDetteReset">Réinitialiser</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nom / Prénom</th><th>Type</th><th>Montant</th><th>Date</th><th>Statut</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="dettesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Modal: Vente -->
+<div class="modal-overlay" id="modalVente">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalVenteTitle">Nouvelle Vente</h3>
+      <button class="modal-close" data-modal="modalVente">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="vente-date" required />
+        </div>
+        <div class="form-group">
+          <label>Produit *</label>
+          <select id="vente-produit" required>
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantité *</label>
+          <input type="number" id="vente-qty" min="1" required />
+        </div>
+        <div class="form-group">
+          <label>Prix d'Achat</label>
+          <input type="number" id="vente-pa" readonly />
+        </div>
+        <div class="form-group">
+          <label>Prix de Vente *</label>
+          <input type="number" id="vente-pv" required />
+        </div>
+        <div class="form-group">
+          <label>Gain (calculé auto)</label>
+          <input type="number" id="vente-gain" readonly />
+        </div>
+        <div class="form-group full-width">
+          <label>Vendeur *</label>
+          <select id="vente-vendeur" required>
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalVente">Annuler</button>
+      <button class="btn btn-primary" id="saveVente">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Stock -->
+<div class="modal-overlay" id="modalStock">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalStockTitle">Ajouter Produit</h3>
+      <button class="modal-close" data-modal="modalStock">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Nom du Produit *</label>
+          <input type="text" id="stock-nom" required />
+        </div>
+        <div class="form-group">
+          <label>Quantité Disponible *</label>
+          <input type="number" id="stock-qty" min="0" required />
+        </div>
+        <div class="form-group">
+          <label>Prix d'Achat *</label>
+          <input type="number" id="stock-pa" required />
+        </div>
+        <div class="form-group">
+          <label>Prix de Vente *</label>
+          <input type="number" id="stock-pv" required />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalStock">Annuler</button>
+      <button class="btn btn-primary" id="saveStock">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Vendeur -->
+<div class="modal-overlay" id="modalVendeur">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalVendeurTitle">Ajouter Vendeur</h3>
+      <button class="modal-close" data-modal="modalVendeur">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Nom du Vendeur *</label>
+          <input type="text" id="vendeur-nom" required />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalVendeur">Annuler</button>
+      <button class="btn btn-primary" id="saveVendeur">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Charge -->
+<div class="modal-overlay" id="modalCharge">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalChargeTitle">Ajouter Charge</h3>
+      <button class="modal-close" data-modal="modalCharge">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="charge-date" required />
+        </div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select id="charge-type" required>
+            <option value="">-- Sélectionner --</option>
+            <option>Courant</option>
+            <option>Location</option>
+            <option>Réparation</option>
+            <option>Salaire</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Montant *</label>
+          <input type="number" id="charge-montant" required />
+        </div>
+        <div class="form-group full-width">
+          <label>Description</label>
+          <textarea id="charge-desc" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalCharge">Annuler</button>
+      <button class="btn btn-primary" id="saveCharge">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Dette -->
+<div class="modal-overlay" id="modalDette">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalDetteTitle">Ajouter Dette</h3>
+      <button class="modal-close" data-modal="modalDette">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Nom / Prénom *</label>
+          <input type="text" id="dette-nom" required />
+        </div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select id="dette-type" required>
+            <option value="">-- Sélectionner --</option>
+            <option>Client doit</option>
+            <option>Boutique doit</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Montant *</label>
+          <input type="number" id="dette-montant" required />
+        </div>
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="dette-date" required />
+        </div>
+        <div class="form-group">
+          <label>Statut</label>
+          <select id="dette-statut">
+            <option>Non payé</option>
+            <option>Payé</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalDette">Annuler</button>
+      <button class="btn btn-primary" id="saveDette">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="modal-overlay" id="modalConfirm">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>Confirmer la suppression</h3>
+    </div>
+    <div class="modal-body">
+      <p id="confirmMessage">Êtes-vous sûr de vouloir supprimer cet élément ?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirmCancel">Annuler</button>
+      <button class="btn btn-danger" id="confirmOk">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

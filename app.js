@@ -143,33 +143,15 @@ function renderDashboard() {
   document.getElementById('kpi-rupture').textContent = fmtNum(ruptures);
 
   // Alertes stock
-  const ruptures  = stock.filter(p => p.qty === 0);
-  const faibles   = stock.filter(p => p.qty > 0 && p.qty <= 5);
-  const lowStock  = [...ruptures, ...faibles];
-  const alertBadge  = document.getElementById('alertBadge');
+  const lowStock = stock.filter(p => p.qty <= 5);
+  const alertBadge = document.getElementById('alertBadge');
   const alertBanner = document.getElementById('alertBanner');
-  const bellListEl  = document.getElementById('bellList');
-  const bellEl2     = document.getElementById('alertBell');
-
+  alertBadge.textContent = lowStock.length;
   if (lowStock.length > 0) {
-    alertBadge.textContent = lowStock.length;
-    alertBadge.style.display = 'flex';
-    bellEl2.classList.add('has-alerts');
     alertBanner.style.display = 'flex';
     alertBanner.innerHTML = `⚠️ <strong>${lowStock.length} produit(s)</strong> en stock faible ou rupture : ${lowStock.map(p => `<em>${p.nom}</em> (${p.qty})`).join(', ')}`;
-    bellListEl.innerHTML = lowStock.map(p => {
-      const isRupture = p.qty === 0;
-      return `<li>
-        <span class="bell-dot${isRupture ? '' : ' warn'}"></span>
-        <span>${p.nom}</span>
-        <span class="bell-qty">${isRupture ? 'RUPTURE' : p.qty + ' restant(s)'}</span>
-      </li>`;
-    }).join('');
   } else {
-    alertBadge.style.display = 'none';
-    bellEl2.classList.remove('has-alerts');
     alertBanner.style.display = 'none';
-    bellListEl.innerHTML = '<li class="bell-empty">Aucune alerte</li>';
   }
 
   // Comparaison mensuelle
@@ -951,20 +933,14 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDettes();
   });
 
-  // Alerte bell → dropdown
-  const bellEl      = document.getElementById('alertBell');
-  const bellDropdown = document.getElementById('bellDropdown');
-  const bellClose   = document.getElementById('bellClose');
-
-  bellEl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    bellDropdown.classList.toggle('open');
+  // Alerte bell → affiche liste alertes
+  document.getElementById('alertBell').addEventListener('click', () => {
+    navigateTo('stock');
+    setTimeout(() => {
+      document.getElementById('filterStockStatus').value = 'Rupture';
+      renderStock();
+    }, 100);
   });
-  bellClose.addEventListener('click', (e) => {
-    e.stopPropagation();
-    bellDropdown.classList.remove('open');
-  });
-  document.addEventListener('click', () => bellDropdown.classList.remove('open'));
 
   // Charger la page initiale
   navigateTo('dashboard');

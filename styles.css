@@ -156,140 +156,20 @@ body {
 .alert-bell {
   position: relative;
   cursor: pointer;
-  width: 40px;
-  height: 40px;
+  font-size: 1.2rem;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  color: var(--text);
-  transition: background .2s, box-shadow .2s;
-  box-shadow: 0 1px 4px rgba(0,0,0,.07);
-}
-.alert-bell:hover {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(99,102,241,.25);
-}
-.bell-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-.alert-bell.has-alerts .bell-icon {
-  animation: bell-ring .5s ease-in-out;
-}
-@keyframes bell-ring {
-  0%,100% { transform: rotate(0deg); }
-  20%      { transform: rotate(-18deg); }
-  40%      { transform: rotate(18deg); }
-  60%      { transform: rotate(-12deg); }
-  80%      { transform: rotate(8deg); }
+  gap: 4px;
 }
 .alert-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
   background: var(--danger);
   color: #fff;
   border-radius: 999px;
-  font-size: .65rem;
+  font-size: .7rem;
   font-weight: 700;
+  padding: 1px 6px;
   min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(239,68,68,.4);
-  animation: badge-pop .3s cubic-bezier(.36,.07,.19,.97);
-}
-@keyframes badge-pop {
-  0%   { transform: scale(0); }
-  70%  { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-/* ---- Bell Dropdown ---- */
-.bell-dropdown {
-  display: none;
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  width: 300px;
-  background: #fff;
-  border: 1.5px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(0,0,0,.12);
-  z-index: 9999;
-  overflow: hidden;
-  animation: dropdown-in .2s ease;
-}
-.bell-dropdown.open { display: block; }
-@keyframes dropdown-in {
-  from { opacity: 0; transform: translateY(-8px) scale(.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-.bell-dropdown-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, var(--primary), #818cf8);
-  color: #fff;
-  font-weight: 600;
-  font-size: .9rem;
-}
-.bell-close {
-  background: none;
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  font-size: 1rem;
-  opacity: .8;
-  padding: 0;
-  line-height: 1;
-}
-.bell-close:hover { opacity: 1; }
-.bell-list {
-  list-style: none;
-  margin: 0;
-  padding: 8px 0;
-  max-height: 260px;
-  overflow-y: auto;
-}
-.bell-list li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  font-size: .85rem;
-  color: var(--text);
-  border-bottom: 1px solid var(--border);
-  transition: background .15s;
-}
-.bell-list li:last-child { border-bottom: none; }
-.bell-list li:hover { background: var(--bg); }
-.bell-list li .bell-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--danger);
-  flex-shrink: 0;
-}
-.bell-list li .bell-dot.warn { background: var(--warning); }
-.bell-list li .bell-qty {
-  margin-left: auto;
-  font-weight: 700;
-  color: var(--danger);
-  font-size: .8rem;
-}
-.bell-empty {
-  color: var(--muted) !important;
-  font-style: italic;
-  justify-content: center !important;
+  text-align: center;
 }
 
 /* ---- Alert Banner ---- */

@@ -402,7 +402,8 @@
       <h2>Reçus de Vente</h2>
     </div>
 
-    <div class="card" style="max-width:700px;">
+    <div class="card" style="max-width:740px;">
+
       <div class="form-grid">
         <div class="form-group">
           <label>Nom du Client *</label>
@@ -412,16 +413,30 @@
           <label>Date *</label>
           <input type="date" id="recu-date" />
         </div>
+        <div class="form-group">
+          <label>Mode de Paiement *</label>
+          <select id="recu-paiement" class="filter-input" style="width:100%;">
+            <option value="Espèces">Espèces</option>
+            <option value="Mobile Money">Mobile Money</option>
+            <option value="Virement Bancaire">Virement Bancaire</option>
+            <option value="Chèque">Chèque</option>
+            <option value="Crédit">Crédit</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>N° Reçu <small style="color:var(--text-muted)">(auto)</small></label>
+          <input type="text" id="recu-numero" readonly style="background:var(--bg-secondary);color:var(--text-muted);" />
+        </div>
       </div>
 
       <div style="margin-top:16px;">
         <table class="data-table" id="recuLignesTable">
           <thead>
             <tr>
-              <th>Produit</th>
+              <th>Désignation</th>
               <th>Qté</th>
               <th>Prix Unitaire (GNF)</th>
-              <th>Total</th>
+              <th>Total (GNF)</th>
               <th></th>
             </tr>
           </thead>
@@ -434,7 +449,7 @@
       </div>
 
       <div style="margin-top:16px; text-align:right; font-size:18px; font-weight:bold;">
-        Total : <span id="recuTotal">0 GNF</span>
+        TOTAL GÉNÉRAL : <span id="recuTotal">0 GNF</span>
       </div>
 
       <div class="modal-footer" style="margin-top:16px; padding:0; border:none;">

@@ -1152,8 +1152,16 @@ function executeDelete() {
 // ============================================
 let recuLignes = [];
 
+function genRecuNumero() {
+  const d = new Date();
+  const ymd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  return `VNP-${ymd}-${seq}`;
+}
+
 function renderRecus() {
   document.getElementById('recu-date').value = today();
+  document.getElementById('recu-numero').value = genRecuNumero();
   recuLignes = [{ produit: '', qty: 1, pu: 0 }];
   renderRecuLignes();
 }
@@ -1217,87 +1225,168 @@ function recuRemoveLigne(i) {
 function printRecu() {
   const clientNom = document.getElementById('recu-nom').value.trim();
   const date = document.getElementById('recu-date').value;
+  const paiement = document.getElementById('recu-paiement').value;
+  const numero = document.getElementById('recu-numero').value;
   if (!clientNom) { toast('Veuillez saisir le nom du client.', 'error'); return; }
   if (!date) { toast('Veuillez saisir la date.', 'error'); return; }
   const lignesValides = recuLignes.filter(l => l.produit && l.qty > 0 && l.pu >= 0);
   if (lignesValides.length === 0) { toast('Ajoutez au moins un produit.', 'error'); return; }
 
   const total = lignesValides.reduce((s, l) => s + l.qty * l.pu, 0);
+  const fmt = n => new Intl.NumberFormat('fr-FR').format(n);
   const now = new Date();
   const printDate = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const printTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const lignesHtml = lignesValides.map(l => `
-    <tr>
-      <td style="padding:4px 0; font-size:12px;">${l.produit}</td>
-      <td style="padding:4px 0; font-size:12px; text-align:center;">${l.qty}</td>
-      <td style="padding:4px 0; font-size:12px; text-align:right;">${new Intl.NumberFormat('fr-FR').format(l.pu)}</td>
-      <td style="padding:4px 0; font-size:12px; text-align:right; font-weight:bold;">${new Intl.NumberFormat('fr-FR').format(l.qty * l.pu)}</td>
+  const lignesHtml = lignesValides.map((l, idx) => `
+    <tr class="${idx % 2 === 1 ? 'alt' : ''}">
+      <td class="td-left">${escHtml(l.produit)}</td>
+      <td class="td-center">${l.qty}</td>
+      <td class="td-right">${fmt(l.pu)}</td>
+      <td class="td-right td-bold">${fmt(l.qty * l.pu)}</td>
     </tr>`).join('');
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Reçu - ${clientNom}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reçu ${numero}</title>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Courier New', monospace; background:#fff; color:#111; }
-    .receipt { width:80mm; margin:0 auto; padding:10mm 6mm; }
-    .header { text-align:center; border-bottom:2px dashed #ccc; padding-bottom:8px; margin-bottom:12px; }
-    .shop-name { font-size:22px; font-weight:bold; letter-spacing:3px; }
-    .shop-sub { font-size:11px; color:#555; margin-top:2px; }
-    .title { font-size:14px; font-weight:bold; text-align:center; margin:10px 0; text-transform:uppercase; letter-spacing:2px; }
-    .divider { border-top:1px dashed #aaa; margin:8px 0; }
-    .info-row { display:flex; justify-content:space-between; padding:3px 0; font-size:12px; }
-    .info-row .label { color:#555; }
-    table { width:100%; border-collapse:collapse; margin-top:6px; }
-    thead th { font-size:11px; text-transform:uppercase; border-bottom:1px solid #aaa; padding-bottom:4px; }
-    thead th:last-child, thead th:nth-child(3), thead th:nth-child(2) { text-align:right; }
-    thead th:nth-child(2) { text-align:center; }
-    .total-row { display:flex; justify-content:space-between; margin-top:10px; padding:8px 0; border-top:2px solid #111; font-size:14px; font-weight:bold; }
-    .footer { text-align:center; border-top:2px dashed #ccc; padding-top:10px; margin-top:14px; font-size:10px; color:#888; }
-    @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:16px 0;}
+    .receipt{width:80mm;background:#fff;padding:10mm 6mm 8mm;box-shadow:0 2px 12px rgba(0,0,0,.15);}
+
+    /* HEADER */
+    .hd{text-align:center;padding-bottom:8px;border-bottom:3px double #222;margin-bottom:10px;}
+    .hd-name{font-size:24px;font-weight:900;letter-spacing:4px;color:#111;}
+    .hd-info{font-size:10.5px;color:#444;margin-top:3px;line-height:1.6;}
+
+    /* TITLE BADGE */
+    .title-badge{text-align:center;margin:10px 0 8px;}
+    .title-badge span{display:inline-block;background:#111;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;padding:4px 12px;text-transform:uppercase;}
+
+    /* META INFO */
+    .meta{margin-bottom:8px;}
+    .meta-row{display:flex;justify-content:space-between;padding:2px 0;font-size:11.5px;}
+    .meta-row .lbl{color:#666;}
+    .meta-row .val{font-weight:bold;color:#111;}
+
+    .divider{border:none;border-top:1px dashed #bbb;margin:8px 0;}
+    .divider-solid{border:none;border-top:1.5px solid #555;margin:6px 0;}
+
+    /* TABLE */
+    table{width:100%;border-collapse:collapse;}
+    thead tr{border-bottom:1.5px solid #444;}
+    thead th{font-size:10px;text-transform:uppercase;padding:4px 2px;color:#333;letter-spacing:.5px;}
+    thead th:first-child{text-align:left;}
+    .td-left{text-align:left;padding:5px 2px;font-size:11.5px;word-break:break-word;}
+    .td-center{text-align:center;padding:5px 2px;font-size:11.5px;}
+    .td-right{text-align:right;padding:5px 2px;font-size:11.5px;}
+    .td-bold{font-weight:bold;}
+    tr.alt{background:#f9f9f9;}
+
+    /* TOTAL */
+    .total-box{margin-top:10px;border-top:2px solid #111;border-bottom:2px solid #111;padding:7px 2px;display:flex;justify-content:space-between;align-items:center;}
+    .total-label{font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;}
+    .total-value{font-size:15px;font-weight:900;}
+
+    /* PAYMENT */
+    .pay-row{display:flex;justify-content:space-between;padding:5px 0;font-size:11.5px;margin-top:6px;}
+    .pay-row .lbl{color:#666;}
+    .pay-row .val{font-weight:bold;}
+
+    /* SIGNATURE */
+    .sig-section{margin-top:14px;display:flex;justify-content:flex-end;}
+    .sig-box{text-align:center;font-size:10.5px;color:#444;}
+    .sig-line{width:90px;border-bottom:1px solid #444;height:36px;margin-bottom:3px;}
+
+    /* FOOTER */
+    .footer{margin-top:14px;text-align:center;border-top:2px dashed #bbb;padding-top:10px;}
+    .thank-msg{font-size:13px;font-weight:bold;letter-spacing:1px;margin-bottom:4px;}
+    .footer-sub{font-size:9.5px;color:#888;line-height:1.6;}
+
+    @media print{
+      body{background:#fff;padding:0;}
+      .receipt{box-shadow:none;width:100%;padding:4mm 4mm;}
+    }
   </style>
 </head>
 <body>
 <div class="receipt">
-  <div class="header">
-    <div class="shop-name">VENIPS</div>
-    <div class="shop-sub">Gestion Commerciale</div>
+
+  <!-- En-tête -->
+  <div class="hd">
+    <div class="hd-name">VENIPS</div>
+    <div class="hd-info">
+      📍 Bailo Baya Marché<br>
+      📞 628 880 354 / 625 185 910
+    </div>
   </div>
 
-  <div class="title">Reçu de Vente</div>
-  <div class="divider"></div>
+  <!-- Badge titre -->
+  <div class="title-badge"><span>✦ Reçu de Vente ✦</span></div>
 
-  <div class="info-row"><span class="label">Client</span><span><strong>${clientNom}</strong></span></div>
-  <div class="info-row"><span class="label">Date</span><span>${formatDate(date)}</span></div>
+  <!-- Infos reçu -->
+  <div class="meta">
+    <div class="meta-row"><span class="lbl">N° Reçu</span><span class="val">${numero}</span></div>
+    <div class="meta-row"><span class="lbl">Date</span><span class="val">${formatDate(date)}</span></div>
+    <div class="meta-row"><span class="lbl">Client</span><span class="val">${escHtml(clientNom)}</span></div>
+  </div>
 
-  <div class="divider"></div>
+  <hr class="divider">
 
+  <!-- Tableau des articles -->
   <table>
     <thead>
       <tr>
-        <th>Produit</th><th>Qté</th><th>P.U</th><th>Total</th>
+        <th style="text-align:left;width:42%">Désignation</th>
+        <th style="text-align:center;width:10%">Qté</th>
+        <th style="text-align:right;width:24%">P.U (GNF)</th>
+        <th style="text-align:right;width:24%">Total (GNF)</th>
       </tr>
     </thead>
     <tbody>${lignesHtml}</tbody>
   </table>
 
-  <div class="total-row">
-    <span>TOTAL À PAYER</span>
-    <span>${new Intl.NumberFormat('fr-FR').format(total)} GNF</span>
+  <hr class="divider-solid">
+
+  <!-- Total -->
+  <div class="total-box">
+    <span class="total-label">Total à Payer</span>
+    <span class="total-value">${fmt(total)} GNF</span>
   </div>
 
-  <div class="footer">
-    <p>Imprimé le ${printDate} à ${printTime}</p>
-    <p style="margin-top:4px;">Merci pour votre achat !</p>
+  <!-- Mode de paiement -->
+  <div class="pay-row">
+    <span class="lbl">Mode de paiement</span>
+    <span class="val">${escHtml(paiement)}</span>
   </div>
+
+  <hr class="divider">
+
+  <!-- Signature vendeur -->
+  <div class="sig-section">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      Signature du Vendeur
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="thank-msg">Merci pour votre confiance !</div>
+    <div class="footer-sub">
+      Imprimé le ${printDate} à ${printTime}<br>
+      Conservez ce reçu comme preuve d'achat.
+    </div>
+  </div>
+
 </div>
 <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
 </body>
 </html>`;
 
-  const w = window.open('', '_blank', 'width=420,height=680');
+  const w = window.open('', '_blank', 'width=460,height:720');
   w.document.write(html);
   w.document.close();
 }

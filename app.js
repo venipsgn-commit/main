@@ -1071,6 +1071,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // Charger la page initiale
-  navigateTo('dashboard');
+  // Charger la page initiale (dashboard seulement pour admin ou non connecté)
+  if (!AUTH.isLoggedIn() || AUTH.isAdmin()) {
+    navigateTo('dashboard');
+  }
 });

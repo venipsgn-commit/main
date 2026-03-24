@@ -256,17 +256,6 @@ function renderDashboard() {
   document.getElementById('kpi-stock').textContent = fmtNum(totalStockItems);
   document.getElementById('kpi-rupture').textContent = fmtNum(ruptures);
 
-  // Alertes stock
-  const lowStock = stock.filter(p => p.qty <= 5);
-  const alertBadge = document.getElementById('alertBadge');
-  const alertBanner = document.getElementById('alertBanner');
-  alertBadge.textContent = lowStock.length;
-  if (lowStock.length > 0) {
-    alertBanner.style.display = 'flex';
-    alertBanner.innerHTML = `⚠️ <strong>${lowStock.length} produit(s)</strong> en stock faible ou rupture : ${lowStock.map(p => `<em>${p.nom}</em> (${p.qty})`).join(', ')}`;
-  } else {
-    alertBanner.style.display = 'none';
-  }
 
   // Comparaison mensuelle
   const curYM = currentYM();
@@ -1081,14 +1070,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDettes();
   });
 
-  // Alerte bell → affiche liste alertes
-  document.getElementById('alertBell').addEventListener('click', () => {
-    navigateTo('stock');
-    setTimeout(() => {
-      document.getElementById('filterStockStatus').value = 'Rupture';
-      renderStock();
-    }, 100);
-  });
 
   // Charger la page initiale
   navigateTo('dashboard');

@@ -46,12 +46,24 @@ const AUTH = {
     const titleUser = document.getElementById('topbarUser');
     if (titleUser) titleUser.textContent = user.display;
 
+    // Réinitialiser les éléments restreints (utile si l'admin prend la main après JACOB)
+    document.getElementById('btnAddStock').style.display = '';
+    const ventesSummary = document.querySelector('#page-ventes .summary-row');
+    if (ventesSummary) ventesSummary.style.display = '';
+    const stockSummaryCards = document.querySelectorAll('#page-stock .summary-card');
+    if (stockSummaryCards[2]) stockSummaryCards[2].style.display = '';
+
     if (user.role === 'vendeur') {
       // JACOB : Ventes + Stock visibles, reste masqué
       document.querySelectorAll('.nav-item').forEach(el => {
         const p = el.dataset.page;
         el.style.display = (p === 'ventes' || p === 'stock') ? '' : 'none';
       });
+      // Masquer les statistiques de ventes (CA, Gain, Qtés)
+      if (ventesSummary) ventesSummary.style.display = 'none';
+      // Masquer le bouton Ajouter Produit et la Valeur Stock Total
+      document.getElementById('btnAddStock').style.display = 'none';
+      if (stockSummaryCards[2]) stockSummaryCards[2].style.display = 'none';
       // Auto-enregistrer comme vendeur si absent
       const nom = user.display;
       const exists = DB.getAll('vendeurs').some(v => v.nom === nom);
@@ -578,15 +590,28 @@ function renderStock() {
   document.getElementById('stock-rupture').textContent = fmtNum(rupture);
   document.getElementById('stock-valeur').textContent = fmt(valeur);
 
+  const isAdmin = AUTH.isAdmin();
+  // Afficher/masquer les colonnes financières selon le rôle
+  const stockThs = document.querySelectorAll('#page-stock thead th');
+  // indices: 0=Produit, 1=Qté, 2=PrixAchat, 3=PrixVente, 4=Marge, 5=Statut, 6=Actions
+  [2, 3, 4, 6].forEach(i => { if (stockThs[i]) stockThs[i].style.display = isAdmin ? '' : 'none'; });
+
   const tbody = document.getElementById('stockBody');
   if (stock.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${isAdmin ? 7 : 3}"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = stock.map(p => {
     const statut = p.qty === 0 ? '<span class="badge badge-danger">Rupture</span>'
       : p.qty <= 5 ? '<span class="badge badge-warning">Faible</span>'
       : '<span class="badge badge-success">Disponible</span>';
+    if (!isAdmin) {
+      return `<tr>
+        <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
+        <td data-label="Qté Disponible">${p.qty}</td>
+        <td data-label="Statut">${statut}</td>
+      </tr>`;
+    }
     const marge = p.pa > 0 ? (((p.pv - p.pa) / p.pa) * 100).toFixed(1) : 0;
     return `<tr>
       <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
@@ -597,7 +622,7 @@ function renderStock() {
       <td data-label="Statut">${statut}</td>
       <td data-label="Actions">
         <button class="btn btn-sm btn-secondary" onclick="openEditStock(${p.id})">✏️ Modifier</button>
-        ${AUTH.isAdmin() ? `<button class="btn btn-sm btn-danger" onclick="confirmDelete('stock',${p.id},'le produit')">🗑️</button>` : ''}
+        <button class="btn btn-sm btn-danger" onclick="confirmDelete('stock',${p.id},'le produit')">🗑️</button>
       </td>
     </tr>`;
   }).join('');

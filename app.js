@@ -47,9 +47,10 @@ const AUTH = {
     if (titleUser) titleUser.textContent = user.display;
 
     if (user.role === 'vendeur') {
-      // JACOB : masquer tout sauf Ventes
+      // JACOB : Ventes + Stock visibles, reste masqué
       document.querySelectorAll('.nav-item').forEach(el => {
-        if (el.dataset.page !== 'ventes') el.style.display = 'none';
+        const p = el.dataset.page;
+        el.style.display = (p === 'ventes' || p === 'stock') ? '' : 'none';
       });
       navigateTo('ventes');
     } else {
@@ -592,7 +593,7 @@ function renderStock() {
       <td data-label="Statut">${statut}</td>
       <td data-label="Actions">
         <button class="btn btn-sm btn-secondary" onclick="openEditStock(${p.id})">✏️ Modifier</button>
-        <button class="btn btn-sm btn-danger" onclick="confirmDelete('stock',${p.id},'le produit')">🗑️</button>
+        ${AUTH.isAdmin() ? `<button class="btn btn-sm btn-danger" onclick="confirmDelete('stock',${p.id},'le produit')">🗑️</button>` : ''}
       </td>
     </tr>`;
   }).join('');

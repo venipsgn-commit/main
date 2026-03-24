@@ -378,6 +378,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 24px;
 }
 .page-header h2 {
@@ -901,7 +903,7 @@ body {
 @media (max-width: 480px) {
   :root { --sidebar-w: 0px; }
 
-  /* Sidebar en drawer */
+  /* ---- Sidebar en drawer ---- */
   .sidebar {
     transform: translateX(-100%);
     width: 240px;
@@ -910,7 +912,6 @@ body {
   }
   .sidebar.open { transform: translateX(0); }
 
-  /* Overlay sombre derrière la sidebar */
   .sidebar-overlay {
     display: none;
     position: fixed;
@@ -920,36 +921,39 @@ body {
   }
   .sidebar-overlay.open { display: block; }
 
-  /* Restaurer labels dans le drawer */
   .sidebar.open .brand-name,
   .sidebar.open .nav-label,
   .sidebar.open .sidebar-footer { display: block; }
   .sidebar.open .sidebar-brand { justify-content: flex-start; padding: 0 20px; }
   .sidebar.open .nav-item { justify-content: flex-start; padding: 12px 20px; margin: 2px 12px 2px 0; border-radius: 0 24px 24px 0; }
 
-  /* Main content plein écran */
+  /* ---- Layout ---- */
   .main-content { margin-left: 0; }
+  .page { padding: 10px; }
 
-  /* Topbar mobile */
+  /* ---- Topbar ---- */
   .topbar { padding: 0 12px; gap: 10px; }
   .menu-toggle { display: block; font-size: 1.4rem; }
-  .topbar-title { font-size: .95rem; }
+  .topbar-title { font-size: 1rem; font-weight: 700; }
 
-  /* Pages */
-  .page { padding: 12px; }
+  /* ---- Page header ---- */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .page-header h2 { font-size: 1.15rem; font-weight: 700; }
+  .page-header .btn { width: 100%; justify-content: center; padding: 11px; }
 
-  /* KPI */
-  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  /* ---- KPI ---- */
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
   .kpi-card { padding: 12px 10px; gap: 8px; }
   .kpi-value { font-size: 1rem; }
   .kpi-icon { font-size: 1.3rem; }
-  .kpi-label { font-size: .7rem; }
+  .kpi-label { font-size: .68rem; }
 
-  /* Page header */
-  .page-header { margin-bottom: 14px; }
-  .page-header .btn { width: 100%; justify-content: center; }
-
-  /* Résumé — grille 2 colonnes compactes */
+  /* ---- Summary cards — grille 2 colonnes ---- */
   .summary-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -957,22 +961,17 @@ body {
     margin-bottom: 12px;
     flex-wrap: unset;
   }
-  /* Si 3 cartes : la 3e prend toute la largeur */
-  .summary-row .summary-card:last-child:nth-child(odd) {
-    grid-column: span 2;
-  }
-  .summary-card {
-    min-width: unset;
-    padding: 10px 12px;
-  }
-  .summary-card span { font-size: .68rem; }
-  .summary-card strong { font-size: .95rem; }
+  .summary-row .summary-card:last-child:nth-child(odd) { grid-column: span 2; }
+  .summary-card { min-width: unset; padding: 10px 12px; }
+  .summary-card span { font-size: .67rem; }
+  .summary-card strong { font-size: .92rem; }
 
-  /* Filtres */
+  /* ---- Filtres ---- */
   .filters-bar { flex-direction: column; gap: 8px; margin-bottom: 12px; }
-  .filter-input, .filters-bar .btn { width: 100%; }
+  .filter-input, .filters-bar .btn { width: 100%; box-sizing: border-box; }
+  .filter-input { min-height: 42px; font-size: .9rem; }
 
-  /* Tables → cartes sur mobile */
+  /* ---- Tables → cartes ---- */
   .table-wrap { overflow-x: unset; }
   .data-table thead { display: none; }
   .data-table,
@@ -992,7 +991,7 @@ body {
     align-items: center;
     padding: 9px 14px;
     border-bottom: 1px solid var(--bg);
-    font-size: .83rem;
+    font-size: .84rem;
     gap: 8px;
     white-space: normal;
     word-break: break-word;
@@ -1004,50 +1003,77 @@ body {
   .data-table td::before {
     content: attr(data-label);
     font-weight: 700;
-    font-size: .72rem;
+    font-size: .71rem;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: .4px;
     flex-shrink: 0;
     min-width: 90px;
   }
+  /* Ligne Actions : boutons côte à côte, pleine largeur */
   .data-table td[data-label="Actions"] {
-    justify-content: flex-end;
-    gap: 6px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    justify-content: stretch;
+    gap: 8px;
+    padding: 10px 14px;
+    flex-wrap: wrap;
   }
   .data-table td[data-label="Actions"]::before { display: none; }
-  /* Ligne vide (empty state) reste normale */
-  .data-table tr:has(.empty-state) {
-    border: none; box-shadow: none; background: transparent;
+  .data-table td[data-label="Actions"] .btn,
+  .data-table td[data-label="Actions"] .btn-sm {
+    flex: 1;
+    justify-content: center;
+    min-height: 38px;
+    font-size: .82rem;
   }
-  .data-table tr:has(.empty-state) td {
-    display: block; border: none;
+  .data-table td[data-label="Actions"] .btn-icon {
+    flex: 0 0 auto;
+    min-height: 38px;
+    min-width: 38px;
+    justify-content: center;
   }
+  /* Empty state */
+  .data-table tr:has(.empty-state) { border: none; box-shadow: none; background: transparent; }
+  .data-table tr:has(.empty-state) td { display: block; border: none; }
   .data-table tr:has(.empty-state) td::before { display: none; }
 
-  /* Modals */
+  /* ---- Modals (bottom sheet) ---- */
   .modal-overlay { align-items: flex-end; padding: 0; }
   .modal {
     width: 100%;
     max-width: 100%;
     border-radius: var(--radius) var(--radius) 0 0;
-    max-height: 90vh;
+    max-height: 92vh;
     overflow-y: auto;
   }
+  .modal-header { padding: 14px 16px; }
+  .modal-body { padding: 14px 16px; }
+  .modal-footer {
+    flex-direction: column-reverse;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .modal-footer .btn { width: 100%; justify-content: center; min-height: 44px; }
 
-  /* Grille graphiques */
+  /* ---- Formulaires ---- */
+  .form-grid { grid-template-columns: 1fr; gap: 10px; }
+  .form-group.full-width { grid-column: span 1; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea { min-height: 44px; font-size: .92rem; }
+
+  /* ---- Graphiques ---- */
   .section-row, .charts-grid { gap: 10px; margin-bottom: 14px; }
 
-  /* Comparaison */
+  /* ---- Comparaison ---- */
   .comp-value { font-size: .95rem; }
+  .comparison-grid { flex-wrap: wrap; gap: 8px; }
+  .comp-badge { width: 100%; text-align: center; }
 
-  /* Toast en bas à gauche sur mobile */
-  .toast-container { bottom: 12px; right: 12px; left: 12px; }
-  .toast { max-width: 100%; }
+  /* ---- Toast ---- */
+  .toast-container { bottom: 12px; right: 10px; left: 10px; }
+  .toast { max-width: 100%; font-size: .85rem; }
 
-  /* Net value */
+  /* ---- Net profit ---- */
   .net-value { font-size: 1.5rem; }
 }
 

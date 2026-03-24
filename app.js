@@ -111,37 +111,60 @@ const AUTH = {
 })();
 
 // ============================================
-// BASE DE DONNÉES (SQLite via serveur Node.js)
+// BASE DE DONNÉES (SQLite via serveur Node.js, fallback localStorage)
 // ============================================
 const DB = {
   _cache: { stock: [], ventes: [], vendeurs: [], charges: [], dettes: [] },
   _BASE: '/api',
+  _serverAvailable: false,
 
-  // Chargement initial depuis le serveur + migration localStorage si besoin
+  // Chargement initial : tente le serveur, sinon localStorage
   async init() {
     const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'];
 
-    // Migration unique depuis localStorage (si données existantes)
-    if (!localStorage.getItem('venips_migrated')) {
-      for (const table of tables) {
-        let localData = [];
-        try { localData = JSON.parse(localStorage.getItem('bp_' + table) || '[]'); } catch {}
-        for (const record of localData) {
-          await fetch(`${this._BASE}/${table}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(record)
-          });
-        }
+    // Vérifier si le serveur est disponible
+    try {
+      const test = await fetch(`${this._BASE}/stock`, { signal: AbortSignal.timeout(3000) });
+      if (test.ok || test.status === 200) {
+        this._serverAvailable = true;
       }
-      localStorage.setItem('venips_migrated', '1');
+    } catch {
+      this._serverAvailable = false;
     }
 
-    // Charger toutes les tables depuis le serveur
-    const results = await Promise.all(
-      tables.map(t => fetch(`${this._BASE}/${t}`).then(r => r.json()))
-    );
-    tables.forEach((t, i) => { this._cache[t] = results[i]; });
+    if (this._serverAvailable) {
+      // Migration unique depuis localStorage (si données existantes)
+      if (!localStorage.getItem('venips_migrated')) {
+        for (const table of tables) {
+          let localData = [];
+          try { localData = JSON.parse(localStorage.getItem('bp_' + table) || '[]'); } catch {}
+          for (const record of localData) {
+            await fetch(`${this._BASE}/${table}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(record)
+            }).catch(() => {});
+          }
+        }
+        localStorage.setItem('venips_migrated', '1');
+      }
+      // Charger toutes les tables depuis le serveur
+      const results = await Promise.all(
+        tables.map(t => fetch(`${this._BASE}/${t}`).then(r => r.json()).catch(() => []))
+      );
+      tables.forEach((t, i) => { this._cache[t] = Array.isArray(results[i]) ? results[i] : []; });
+    } else {
+      // Fallback : localStorage
+      tables.forEach(t => {
+        try { this._cache[t] = JSON.parse(localStorage.getItem('bp_' + t) || '[]'); } catch { this._cache[t] = []; }
+      });
+    }
+  },
+
+  _saveLocal(table) {
+    if (!this._serverAvailable) {
+      localStorage.setItem('bp_' + table, JSON.stringify(this._cache[table]));
+    }
   },
 
   getAll(table) {
@@ -152,11 +175,15 @@ const DB = {
     record.id = Date.now() + Math.floor(Math.random() * 1000);
     record.createdAt = new Date().toISOString();
     this._cache[table].push(record);
-    fetch(`${this._BASE}/${table}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(record)
-    });
+    if (this._serverAvailable) {
+      fetch(`${this._BASE}/${table}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record)
+      }).catch(() => {});
+    } else {
+      this._saveLocal(table);
+    }
     return record;
   },
 
@@ -164,11 +191,15 @@ const DB = {
     const idx = this._cache[table].findIndex(r => r.id === id);
     if (idx !== -1) {
       this._cache[table][idx] = { ...this._cache[table][idx], ...updates, updatedAt: new Date().toISOString() };
-      fetch(`${this._BASE}/${table}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
+      if (this._serverAvailable) {
+        fetch(`${this._BASE}/${table}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        }).catch(() => {});
+      } else {
+        this._saveLocal(table);
+      }
       return this._cache[table][idx];
     }
     return null;
@@ -176,7 +207,11 @@ const DB = {
 
   delete(table, id) {
     this._cache[table] = this._cache[table].filter(r => r.id !== id);
-    fetch(`${this._BASE}/${table}/${id}`, { method: 'DELETE' });
+    if (this._serverAvailable) {
+      fetch(`${this._BASE}/${table}/${id}`, { method: 'DELETE' }).catch(() => {});
+    } else {
+      this._saveLocal(table);
+    }
   },
 
   findById(table, id) {

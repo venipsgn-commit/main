@@ -111,52 +111,76 @@ const AUTH = {
 })();
 
 // ============================================
-// BASE DE DONNÉES (localStorage)
+// BASE DE DONNÉES (SQLite via serveur Node.js)
 // ============================================
 const DB = {
-  _tables: ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'],
+  _cache: { stock: [], ventes: [], vendeurs: [], charges: [], dettes: [] },
+  _BASE: '/api',
 
-  load(table) {
-    try {
-      return JSON.parse(localStorage.getItem('bp_' + table) || '[]');
-    } catch { return []; }
-  },
+  // Chargement initial depuis le serveur + migration localStorage si besoin
+  async init() {
+    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'];
 
-  save(table, data) {
-    localStorage.setItem('bp_' + table, JSON.stringify(data));
+    // Migration unique depuis localStorage (si données existantes)
+    if (!localStorage.getItem('venips_migrated')) {
+      for (const table of tables) {
+        let localData = [];
+        try { localData = JSON.parse(localStorage.getItem('bp_' + table) || '[]'); } catch {}
+        for (const record of localData) {
+          await fetch(`${this._BASE}/${table}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(record)
+          });
+        }
+      }
+      localStorage.setItem('venips_migrated', '1');
+    }
+
+    // Charger toutes les tables depuis le serveur
+    const results = await Promise.all(
+      tables.map(t => fetch(`${this._BASE}/${t}`).then(r => r.json()))
+    );
+    tables.forEach((t, i) => { this._cache[t] = results[i]; });
   },
 
   getAll(table) {
-    return this.load(table);
+    return [...this._cache[table]];
   },
 
   insert(table, record) {
-    const data = this.load(table);
     record.id = Date.now() + Math.floor(Math.random() * 1000);
     record.createdAt = new Date().toISOString();
-    data.push(record);
-    this.save(table, data);
+    this._cache[table].push(record);
+    fetch(`${this._BASE}/${table}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record)
+    });
     return record;
   },
 
   update(table, id, updates) {
-    const data = this.load(table);
-    const idx = data.findIndex(r => r.id === id);
+    const idx = this._cache[table].findIndex(r => r.id === id);
     if (idx !== -1) {
-      data[idx] = { ...data[idx], ...updates, updatedAt: new Date().toISOString() };
-      this.save(table, data);
-      return data[idx];
+      this._cache[table][idx] = { ...this._cache[table][idx], ...updates, updatedAt: new Date().toISOString() };
+      fetch(`${this._BASE}/${table}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      return this._cache[table][idx];
     }
     return null;
   },
 
   delete(table, id) {
-    const data = this.load(table).filter(r => r.id !== id);
-    this.save(table, data);
+    this._cache[table] = this._cache[table].filter(r => r.id !== id);
+    fetch(`${this._BASE}/${table}/${id}`, { method: 'DELETE' });
   },
 
   findById(table, id) {
-    return this.load(table).find(r => r.id === id) || null;
+    return this._cache[table].find(r => r.id === id) || null;
   }
 };
 
@@ -1462,7 +1486,8 @@ function updateDateDisplay() {
 // ============================================
 // INITIALISATION & EVENT LISTENERS
 // ============================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await DB.init();
   updateDateDisplay();
 
   // Navigation

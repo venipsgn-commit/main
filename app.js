@@ -72,6 +72,7 @@ const AUTH = {
     } else {
       // VENIPS admin : tout visible
       document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
+      navigateTo('dashboard');
     }
   }
 
@@ -1071,8 +1072,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // Charger la page initiale (dashboard seulement pour admin ou non connecté)
-  if (!AUTH.isLoggedIn() || AUTH.isAdmin()) {
-    navigateTo('dashboard');
-  }
+  // La navigation initiale est gérée par applyRole() dans initAuth
 });

@@ -1377,7 +1377,8 @@ function printRecu() {
     <div class="thank-msg">Merci pour votre confiance !</div>
     <div class="footer-sub">
       Imprimé le ${printDate} à ${printTime}<br>
-      Conservez ce reçu comme preuve d'achat.
+      Conservez ce reçu comme preuve d'achat.<br>
+      <strong style="color:#111;">⚠️ Garantie produit : 72 heures</strong>
     </div>
   </div>
 

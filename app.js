@@ -52,6 +52,10 @@ const AUTH = {
         const p = el.dataset.page;
         el.style.display = (p === 'ventes' || p === 'stock') ? '' : 'none';
       });
+      // Auto-enregistrer comme vendeur si absent
+      const nom = user.display;
+      const exists = DB.getAll('vendeurs').some(v => v.nom === nom);
+      if (!exists) DB.insert('vendeurs', { nom });
       navigateTo('ventes');
     } else {
       // VENIPS admin : tout visible
@@ -418,8 +422,8 @@ function renderVentes() {
       <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
       <td data-label="Vendeur">${escHtml(v.vendeur || '—')}</td>
       <td data-label="Actions">
-        <button class="btn-icon" title="Modifier" onclick="openEditVente(${v.id})">✏️</button>
-        <button class="btn-icon" title="Supprimer" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>
+        <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️ Modifier</button>
+        ${AUTH.isAdmin() ? `<button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>` : ''}
       </td>
     </tr>`).join('');
 }

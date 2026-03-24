@@ -38,7 +38,7 @@ const AUTH = {
   const errEl    = document.getElementById('loginError');
   const eyeBtn   = document.getElementById('loginEye');
 
-  function applyRole() {
+  function applyRoleUI() {
     const user = AUTH.currentUser();
     if (!user) return;
 
@@ -46,7 +46,7 @@ const AUTH = {
     const titleUser = document.getElementById('topbarUser');
     if (titleUser) titleUser.textContent = user.display;
 
-    // Réinitialiser les éléments restreints (utile si l'admin prend la main après JACOB)
+    // Réinitialiser les éléments restreints
     document.getElementById('btnAddStock').style.display = '';
     const ventesSummary = document.querySelector('#page-ventes .summary-row');
     if (ventesSummary) ventesSummary.style.display = '';
@@ -54,32 +54,21 @@ const AUTH = {
     if (stockSummaryCards[2]) stockSummaryCards[2].style.display = '';
 
     if (user.role === 'vendeur') {
-      // JACOB : Ventes + Stock visibles, reste masqué
       document.querySelectorAll('.nav-item').forEach(el => {
         const p = el.dataset.page;
         el.style.display = (p === 'ventes' || p === 'stock') ? '' : 'none';
       });
-      // Masquer les statistiques de ventes (CA, Gain, Qtés)
       if (ventesSummary) ventesSummary.style.display = 'none';
-      // Masquer le bouton Ajouter Produit et la Valeur Stock Total
       document.getElementById('btnAddStock').style.display = 'none';
       if (stockSummaryCards[2]) stockSummaryCards[2].style.display = 'none';
-      // Auto-enregistrer comme vendeur si absent
-      const nom = user.display;
-      const exists = DB.getAll('vendeurs').some(v => v.nom === nom);
-      if (!exists) DB.insert('vendeurs', { nom });
-      const lastPage = sessionStorage.getItem('venips_last_page');
-      navigateTo(lastPage === 'stock' ? 'stock' : 'ventes');
     } else {
-      // VENIPS admin : tout visible
       document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
-      navigateTo('dashboard');
     }
   }
 
   function showApp() {
     screen.classList.add('hidden');
-    applyRole();
+    applyRoleUI();
   }
   function showLogin() {
     screen.classList.remove('hidden');
@@ -1084,5 +1073,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // La navigation initiale est gérée par applyRole() dans initAuth
+  // Navigation initiale + enregistrement vendeur (DB disponible ici)
+  if (AUTH.isLoggedIn()) {
+    const user = AUTH.currentUser();
+    if (user.role === 'vendeur') {
+      const nom = user.display;
+      const exists = DB.getAll('vendeurs').some(v => v.nom === nom);
+      if (!exists) DB.insert('vendeurs', { nom });
+      const lastPage = sessionStorage.getItem('venips_last_page');
+      navigateTo(lastPage === 'stock' ? 'stock' : 'ventes');
+    } else {
+      navigateTo('dashboard');
+    }
+  }
 });

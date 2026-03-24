@@ -865,6 +865,7 @@ function renderDettes() {
       </td>
       <td data-label="Actions">
         ${d.statut === 'Non payé' ? `<button class="btn btn-sm btn-success" onclick="markDettePaid(${d.id})">✓ Régler</button>` : ''}
+        <button class="btn btn-sm btn-secondary" onclick="printRecuDette(${d.id})">🖨️ Reçu</button>
         <button class="btn-icon" onclick="openEditDette(${d.id})">✏️</button>
         <button class="btn-icon" onclick="confirmDelete('dettes',${d.id},'la dette')">🗑️</button>
       </td>
@@ -921,6 +922,93 @@ function markDettePaid(id) {
   DB.update('dettes', id, { statut: 'Payé' });
   toast('Dette marquée comme réglée.');
   renderDettes();
+}
+
+function printRecuDette(id) {
+  const d = DB.findById('dettes', id);
+  if (!d) return;
+  const now = new Date();
+  const printDate = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const printTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const statutColor = d.statut === 'Payé' ? '#16a34a' : '#d97706';
+  const typeColor = d.type === 'Client doit' ? '#16a34a' : '#dc2626';
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Reçu - ${d.nom}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; background: #fff; color: #111; }
+    .receipt { width: 80mm; margin: 0 auto; padding: 10mm 6mm; }
+    .header { text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 8px; margin-bottom: 12px; }
+    .shop-name { font-size: 22px; font-weight: bold; letter-spacing: 3px; }
+    .shop-sub { font-size: 11px; color: #555; margin-top: 2px; }
+    .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0; text-transform: uppercase; letter-spacing: 2px; }
+    .divider { border-top: 1px dashed #aaa; margin: 8px 0; }
+    .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+    .row .label { color: #555; }
+    .row .value { font-weight: bold; text-align: right; }
+    .montant-box { text-align: center; margin: 14px 0; padding: 10px; border: 2px solid #111; border-radius: 4px; }
+    .montant-box .mont-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+    .montant-box .mont-value { font-size: 20px; font-weight: bold; margin-top: 4px; }
+    .statut-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; color: #fff; font-size: 11px; font-weight: bold; background: ${statutColor}; }
+    .type-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; color: #fff; font-size: 11px; font-weight: bold; background: ${typeColor}; }
+    .footer { text-align: center; border-top: 2px dashed #ccc; padding-top: 10px; margin-top: 12px; font-size: 10px; color: #888; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+<div class="receipt">
+  <div class="header">
+    <div class="shop-name">VENIPS</div>
+    <div class="shop-sub">Gestion Commerciale</div>
+  </div>
+
+  <div class="title">Reçu de Dette</div>
+  <div class="divider"></div>
+
+  <div class="row">
+    <span class="label">Client / Fournisseur</span>
+    <span class="value">${d.nom}</span>
+  </div>
+  <div class="row">
+    <span class="label">Type</span>
+    <span class="value"><span class="type-badge">${d.type}</span></span>
+  </div>
+  <div class="row">
+    <span class="label">Date de la dette</span>
+    <span class="value">${formatDate(d.date)}</span>
+  </div>
+  <div class="row">
+    <span class="label">Statut</span>
+    <span class="value"><span class="statut-badge">${d.statut}</span></span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="montant-box">
+    <div class="mont-label">Montant</div>
+    <div class="mont-value">${fmt(d.montant)}</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="footer">
+    <p>Imprimé le ${printDate} à ${printTime}</p>
+    <p style="margin-top:4px;">Merci pour votre confiance</p>
+  </div>
+</div>
+<script>window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; }<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank', 'width=400,height=600');
+  w.document.write(html);
+  w.document.close();
 }
 
 // ============================================

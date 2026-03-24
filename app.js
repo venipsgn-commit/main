@@ -1,9 +1,84 @@
 /* ============================================
-   BOUTIQUE PRO – APPLICATION JAVASCRIPT
+   VENIPS – APPLICATION JAVASCRIPT
    Base de données : localStorage
    ============================================ */
 
 'use strict';
+
+// ============================================
+// AUTHENTIFICATION
+// ============================================
+const AUTH = {
+  USER: 'VENIPS',
+  PASS: 'venips224@',
+  KEY:  'venips_auth',
+
+  isLoggedIn() {
+    return sessionStorage.getItem(this.KEY) === '1';
+  },
+  login(user, pass) {
+    if (user === this.USER && pass === this.PASS) {
+      sessionStorage.setItem(this.KEY, '1');
+      return true;
+    }
+    return false;
+  },
+  logout() {
+    sessionStorage.removeItem(this.KEY);
+  }
+};
+
+(function initAuth() {
+  const screen   = document.getElementById('loginScreen');
+  const btnLogin = document.getElementById('loginBtn');
+  const userEl   = document.getElementById('loginUser');
+  const passEl   = document.getElementById('loginPass');
+  const errEl    = document.getElementById('loginError');
+  const eyeBtn   = document.getElementById('loginEye');
+
+  function showApp() {
+    screen.classList.add('hidden');
+  }
+  function showLogin() {
+    screen.classList.remove('hidden');
+  }
+
+  // Déjà connecté ?
+  if (AUTH.isLoggedIn()) { showApp(); } else { showLogin(); }
+
+  // Toggle mot de passe visible
+  eyeBtn.addEventListener('click', () => {
+    const isPass = passEl.type === 'password';
+    passEl.type  = isPass ? 'text' : 'password';
+    eyeBtn.textContent = isPass ? '🙈' : '👁️';
+  });
+
+  function tryLogin() {
+    const user = userEl.value.trim();
+    const pass = passEl.value;
+    if (AUTH.login(user, pass)) {
+      errEl.classList.remove('show');
+      showApp();
+    } else {
+      errEl.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
+      errEl.classList.add('show');
+      passEl.value = '';
+      passEl.focus();
+    }
+  }
+
+  btnLogin.addEventListener('click', tryLogin);
+  passEl.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+  userEl.addEventListener('keydown', e => { if (e.key === 'Enter') passEl.focus(); });
+
+  // Bouton déconnexion
+  document.getElementById('btnLogout').addEventListener('click', () => {
+    AUTH.logout();
+    showLogin();
+    userEl.value = '';
+    passEl.value = '';
+  });
+})();
 
 // ============================================
 // BASE DE DONNÉES (localStorage)

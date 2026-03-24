@@ -36,9 +36,36 @@
     </li>
   </ul>
   <div class="sidebar-footer">
+    <button class="btn-logout" id="btnLogout" title="Se déconnecter">
+      <span>🚪</span><span class="nav-label">Déconnexion</span>
+    </button>
     <span class="version">v1.0.0</span>
   </div>
 </nav>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🏪</div>
+    <h1 class="login-title">VENIPS</h1>
+    <p class="login-subtitle">Gestion Commerciale</p>
+    <div class="login-form">
+      <div class="login-field">
+        <label>Nom d'utilisateur</label>
+        <input type="text" id="loginUser" placeholder="Entrez votre nom d'utilisateur" autocomplete="username" />
+      </div>
+      <div class="login-field">
+        <label>Mot de passe</label>
+        <div class="login-pass-wrap">
+          <input type="password" id="loginPass" placeholder="Entrez votre mot de passe" autocomplete="current-password" />
+          <button class="login-eye" id="loginEye" type="button">👁️</button>
+        </div>
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="login-btn" id="loginBtn">Se connecter</button>
+    </div>
+  </div>
+</div>
 
 <!-- Overlay sidebar mobile -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>

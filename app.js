@@ -201,7 +201,8 @@ const pageTitles = {
   stock: 'Gestion du Stock',
   vendeurs: 'Gestion des Vendeurs',
   charges: 'Gestion des Charges',
-  dettes: 'Gestion des Dettes'
+  dettes: 'Gestion des Dettes',
+  recus: 'Reçus de Vente'
 };
 
 function navigateTo(page) {
@@ -222,6 +223,7 @@ function navigateTo(page) {
   if (page === 'vendeurs') renderVendeurs();
   if (page === 'charges') renderCharges();
   if (page === 'dettes') renderDettes();
+  if (page === 'recus') renderRecus();
 }
 
 // ============================================
@@ -1146,6 +1148,161 @@ function executeDelete() {
 }
 
 // ============================================
+// RECUS DE VENTE
+// ============================================
+let recuLignes = [];
+
+function renderRecus() {
+  document.getElementById('recu-date').value = today();
+  recuLignes = [{ produit: '', qty: 1, pu: 0 }];
+  renderRecuLignes();
+}
+
+function renderRecuLignes() {
+  const stock = DB.getAll('stock');
+  const options = stock.map(s => `<option value="${escHtml(s.nom)}" data-pu="${s.pv}">${escHtml(s.nom)}</option>`).join('');
+  const tbody = document.getElementById('recuLignesBody');
+  tbody.innerHTML = recuLignes.map((l, i) => `
+    <tr>
+      <td data-label="Produit">
+        <select class="filter-input" onchange="recuSetProduit(${i}, this)" style="width:100%">
+          <option value="">-- Produit --</option>
+          ${options}
+        </select>
+      </td>
+      <td data-label="Qté">
+        <input type="number" class="filter-input" min="1" value="${l.qty}"
+          onchange="recuSetQty(${i}, this)" style="width:70px" />
+      </td>
+      <td data-label="Prix Unitaire">
+        <input type="number" class="filter-input" min="0" value="${l.pu}"
+          onchange="recuSetPu(${i}, this)" style="width:110px" />
+      </td>
+      <td data-label="Total">${new Intl.NumberFormat('fr-FR').format((l.qty || 0) * (l.pu || 0))} GNF</td>
+      <td>
+        ${recuLignes.length > 1 ? `<button class="btn-icon" onclick="recuRemoveLigne(${i})">🗑️</button>` : ''}
+      </td>
+    </tr>`).join('');
+  const total = recuLignes.reduce((s, l) => s + (l.qty || 0) * (l.pu || 0), 0);
+  document.getElementById('recuTotal').textContent = new Intl.NumberFormat('fr-FR').format(total) + ' GNF';
+  // Re-sélectionner les produits déjà choisis
+  const rows = tbody.querySelectorAll('tr');
+  recuLignes.forEach((l, i) => {
+    if (l.produit) rows[i].querySelector('select').value = l.produit;
+  });
+}
+
+function recuSetProduit(i, sel) {
+  recuLignes[i].produit = sel.value;
+  const opt = sel.options[sel.selectedIndex];
+  recuLignes[i].pu = parseFloat(opt.dataset.pu || 0);
+  renderRecuLignes();
+}
+
+function recuSetQty(i, inp) {
+  recuLignes[i].qty = parseInt(inp.value) || 1;
+  renderRecuLignes();
+}
+
+function recuSetPu(i, inp) {
+  recuLignes[i].pu = parseFloat(inp.value) || 0;
+  renderRecuLignes();
+}
+
+function recuRemoveLigne(i) {
+  recuLignes.splice(i, 1);
+  renderRecuLignes();
+}
+
+function printRecu() {
+  const clientNom = document.getElementById('recu-nom').value.trim();
+  const date = document.getElementById('recu-date').value;
+  if (!clientNom) { toast('Veuillez saisir le nom du client.', 'error'); return; }
+  if (!date) { toast('Veuillez saisir la date.', 'error'); return; }
+  const lignesValides = recuLignes.filter(l => l.produit && l.qty > 0 && l.pu >= 0);
+  if (lignesValides.length === 0) { toast('Ajoutez au moins un produit.', 'error'); return; }
+
+  const total = lignesValides.reduce((s, l) => s + l.qty * l.pu, 0);
+  const now = new Date();
+  const printDate = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const printTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const lignesHtml = lignesValides.map(l => `
+    <tr>
+      <td style="padding:4px 0; font-size:12px;">${l.produit}</td>
+      <td style="padding:4px 0; font-size:12px; text-align:center;">${l.qty}</td>
+      <td style="padding:4px 0; font-size:12px; text-align:right;">${new Intl.NumberFormat('fr-FR').format(l.pu)}</td>
+      <td style="padding:4px 0; font-size:12px; text-align:right; font-weight:bold;">${new Intl.NumberFormat('fr-FR').format(l.qty * l.pu)}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Reçu - ${clientNom}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Courier New', monospace; background:#fff; color:#111; }
+    .receipt { width:80mm; margin:0 auto; padding:10mm 6mm; }
+    .header { text-align:center; border-bottom:2px dashed #ccc; padding-bottom:8px; margin-bottom:12px; }
+    .shop-name { font-size:22px; font-weight:bold; letter-spacing:3px; }
+    .shop-sub { font-size:11px; color:#555; margin-top:2px; }
+    .title { font-size:14px; font-weight:bold; text-align:center; margin:10px 0; text-transform:uppercase; letter-spacing:2px; }
+    .divider { border-top:1px dashed #aaa; margin:8px 0; }
+    .info-row { display:flex; justify-content:space-between; padding:3px 0; font-size:12px; }
+    .info-row .label { color:#555; }
+    table { width:100%; border-collapse:collapse; margin-top:6px; }
+    thead th { font-size:11px; text-transform:uppercase; border-bottom:1px solid #aaa; padding-bottom:4px; }
+    thead th:last-child, thead th:nth-child(3), thead th:nth-child(2) { text-align:right; }
+    thead th:nth-child(2) { text-align:center; }
+    .total-row { display:flex; justify-content:space-between; margin-top:10px; padding:8px 0; border-top:2px solid #111; font-size:14px; font-weight:bold; }
+    .footer { text-align:center; border-top:2px dashed #ccc; padding-top:10px; margin-top:14px; font-size:10px; color:#888; }
+    @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+  </style>
+</head>
+<body>
+<div class="receipt">
+  <div class="header">
+    <div class="shop-name">VENIPS</div>
+    <div class="shop-sub">Gestion Commerciale</div>
+  </div>
+
+  <div class="title">Reçu de Vente</div>
+  <div class="divider"></div>
+
+  <div class="info-row"><span class="label">Client</span><span><strong>${clientNom}</strong></span></div>
+  <div class="info-row"><span class="label">Date</span><span>${formatDate(date)}</span></div>
+
+  <div class="divider"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Produit</th><th>Qté</th><th>P.U</th><th>Total</th>
+      </tr>
+    </thead>
+    <tbody>${lignesHtml}</tbody>
+  </table>
+
+  <div class="total-row">
+    <span>TOTAL À PAYER</span>
+    <span>${new Intl.NumberFormat('fr-FR').format(total)} GNF</span>
+  </div>
+
+  <div class="footer">
+    <p>Imprimé le ${printDate} à ${printTime}</p>
+    <p style="margin-top:4px;">Merci pour votre achat !</p>
+  </div>
+</div>
+<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank', 'width=420,height=680');
+  w.document.write(html);
+  w.document.close();
+}
+
+// ============================================
 // HELPERS
 // ============================================
 function formatDate(d) {
@@ -1220,6 +1377,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnAddVendeur').addEventListener('click', openAddVendeur);
   document.getElementById('btnAddCharge').addEventListener('click', openAddCharge);
   document.getElementById('btnAddDette').addEventListener('click', openAddDette);
+  document.getElementById('btnAddRecuLigne').addEventListener('click', () => { recuLignes.push({ produit: '', qty: 1, pu: 0 }); renderRecuLignes(); });
+  document.getElementById('btnPrintRecu').addEventListener('click', printRecu);
 
   // Boutons enregistrer
   document.getElementById('saveVente').addEventListener('click', saveVente);

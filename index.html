@@ -33,6 +33,9 @@
     <li class="nav-item" data-page="dettes">
       <span class="nav-icon">🤝</span><span class="nav-label">Dettes</span>
     </li>
+    <li class="nav-item" data-page="recus">
+      <span class="nav-icon">🧾</span><span class="nav-label">Reçus</span>
+    </li>
   </ul>
   <div class="sidebar-footer">
     <button class="btn-logout" id="btnLogout" title="Se déconnecter">
@@ -388,6 +391,54 @@
           </thead>
           <tbody id="dettesBody"></tbody>
         </table>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- PAGE: RECUS -->
+  <section class="page" id="page-recus">
+    <div class="page-header">
+      <h2>Reçus de Vente</h2>
+    </div>
+
+    <div class="card" style="max-width:700px;">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nom du Client *</label>
+          <input type="text" id="recu-nom" placeholder="Ex: Mamadou Diallo" />
+        </div>
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="recu-date" />
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <table class="data-table" id="recuLignesTable">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Qté</th>
+              <th>Prix Unitaire (GNF)</th>
+              <th>Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="recuLignesBody"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:10px;">
+        <button class="btn btn-secondary" id="btnAddRecuLigne">+ Ajouter une ligne</button>
+      </div>
+
+      <div style="margin-top:16px; text-align:right; font-size:18px; font-weight:bold;">
+        Total : <span id="recuTotal">0 GNF</span>
+      </div>
+
+      <div class="modal-footer" style="margin-top:16px; padding:0; border:none;">
+        <button class="btn btn-primary" id="btnPrintRecu">🖨️ Imprimer le Reçu</button>
       </div>
     </div>
   </section>

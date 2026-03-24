@@ -68,7 +68,8 @@ const AUTH = {
       const nom = user.display;
       const exists = DB.getAll('vendeurs').some(v => v.nom === nom);
       if (!exists) DB.insert('vendeurs', { nom });
-      navigateTo('ventes');
+      const lastPage = sessionStorage.getItem('venips_last_page');
+      navigateTo(lastPage === 'stock' ? 'stock' : 'ventes');
     } else {
       // VENIPS admin : tout visible
       document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
@@ -222,6 +223,10 @@ function navigateTo(page) {
   if (navItem) navItem.classList.add('active');
   if (pageEl) pageEl.classList.add('active');
   document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+  // Mémoriser la page courante pour JACOB
+  if (AUTH.currentUser()?.role === 'vendeur') {
+    sessionStorage.setItem('venips_last_page', page);
+  }
   if (page === 'dashboard') renderDashboard();
   if (page === 'ventes') renderVentes();
   if (page === 'stock') renderStock();

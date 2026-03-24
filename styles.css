@@ -62,17 +62,15 @@ body {
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 20px 20px;
+  justify-content: center;
+  padding: 14px 20px;
   border-bottom: 1px solid rgba(255,255,255,.1);
   min-height: var(--topbar-h);
 }
-.brand-icon { font-size: 1.6rem; }
-.brand-name {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: .5px;
+.brand-logo {
+  height: 36px;
+  width: auto;
+  display: block;
 }
 
 .nav-list {
@@ -158,8 +156,18 @@ body {
   text-align: center;
 }
 .login-logo {
-  font-size: 3rem;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #040e3b;
+  border-radius: 16px;
+  padding: 14px 20px;
+}
+.login-logo-img {
+  height: 44px;
+  width: auto;
+  display: block;
 }
 .login-title {
   font-size: 2rem;

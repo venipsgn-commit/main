@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 205 52">
+  <defs>
+    <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4c4"/>
+      <stop offset="50%" stop-color="#00a090"/>
+      <stop offset="100%" stop-color="#004a38"/>
+    </linearGradient>
+    <linearGradient id="wg2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00f0e0"/>
+      <stop offset="100%" stop-color="#006050"/>
+    </linearGradient>
+  </defs>
+
+  <!-- W mark — left half (dark teal) -->
+  <polygon points="2,4 11,4 21,47 12,47" fill="url(#wg)"/>
+  <!-- W mark — middle peak (bright teal) -->
+  <polygon points="11,4 21,4 17,22 7,22" fill="url(#wg2)" opacity="0.9"/>
+  <!-- W mark — right half (bright teal) -->
+  <polygon points="17,4 30,4 21,47 11,47" fill="url(#wg2)"/>
+  <!-- W mark — dark overlap accent bottom -->
+  <polygon points="12,32 21,47 13,47" fill="#003530" opacity="0.6"/>
+
+  <!-- Accent dot (top right of mark) -->
+  <circle cx="33" cy="7" r="2.8" fill="#00f0e0"/>
+
+  <!-- VENIPS text -->
+  <text x="42" y="39"
+        font-family="'Trebuchet MS','Arial Black',Arial,sans-serif"
+        font-size="28"
+        font-weight="900"
+        fill="#ffffff"
+        letter-spacing="2">VENIPS</text>
+
+  <!-- Cyan dot above the "i" in VENIPS (center of I ≈ x=120) -->
+  <circle cx="120" cy="11" r="3.2" fill="#00f0e0"/>
+</svg>

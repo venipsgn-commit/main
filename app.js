@@ -487,8 +487,8 @@ function printRecuVente() {
     body { font-family: 'Courier New', monospace; background: #fff; color: #111; }
     .receipt { width: 80mm; margin: 0 auto; padding: 10mm 6mm; }
     .header { text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 8px; margin-bottom: 12px; }
-    .shop-name { font-size: 22px; font-weight: bold; letter-spacing: 3px; }
-    .shop-sub { font-size: 11px; color: #555; margin-top: 2px; }
+    .logo-wrap { display:inline-block; background:#040e3b; border-radius:10px; padding:8px 14px; margin-bottom:4px; }
+    .shop-sub { font-size: 11px; color: #555; margin-top: 4px; }
     .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0; text-transform: uppercase; letter-spacing: 2px; }
     .divider { border-top: 1px dashed #aaa; margin: 8px 0; }
     .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
@@ -506,7 +506,21 @@ function printRecuVente() {
 <body>
 <div class="receipt">
   <div class="header">
-    <div class="shop-name">VENIPS</div>
+    <div class="logo-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 205 52" width="130" height="34">
+        <defs>
+          <linearGradient id="rg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00d4c4"/><stop offset="100%" stop-color="#004a38"/></linearGradient>
+          <linearGradient id="rg2" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#00f0e0"/><stop offset="100%" stop-color="#006050"/></linearGradient>
+        </defs>
+        <polygon points="2,4 11,4 21,47 12,47" fill="url(#rg1)"/>
+        <polygon points="11,4 21,4 17,22 7,22" fill="url(#rg2)" opacity="0.9"/>
+        <polygon points="17,4 30,4 21,47 11,47" fill="url(#rg2)"/>
+        <polygon points="12,32 21,47 13,47" fill="#003530" opacity="0.6"/>
+        <circle cx="33" cy="7" r="2.8" fill="#00c8b8"/>
+        <text x="42" y="39" font-family="Trebuchet MS,Arial Black,Arial,sans-serif" font-size="28" font-weight="900" fill="#fff" letter-spacing="2">VENIPS</text>
+        <circle cx="120" cy="11" r="3.2" fill="#00c8b8"/>
+      </svg>
+    </div>
     <div class="shop-sub">Gestion Commerciale</div>
   </div>
 
@@ -1054,8 +1068,8 @@ function printRecuDette(id) {
     body { font-family: 'Courier New', monospace; background: #fff; color: #111; }
     .receipt { width: 80mm; margin: 0 auto; padding: 10mm 6mm; }
     .header { text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 8px; margin-bottom: 12px; }
-    .shop-name { font-size: 22px; font-weight: bold; letter-spacing: 3px; }
-    .shop-sub { font-size: 11px; color: #555; margin-top: 2px; }
+    .logo-wrap { display:inline-block; background:#040e3b; border-radius:10px; padding:8px 14px; margin-bottom:4px; }
+    .shop-sub { font-size: 11px; color: #555; margin-top: 4px; }
     .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0; text-transform: uppercase; letter-spacing: 2px; }
     .divider { border-top: 1px dashed #aaa; margin: 8px 0; }
     .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
@@ -1075,7 +1089,21 @@ function printRecuDette(id) {
 <body>
 <div class="receipt">
   <div class="header">
-    <div class="shop-name">VENIPS</div>
+    <div class="logo-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 205 52" width="130" height="34">
+        <defs>
+          <linearGradient id="rg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00d4c4"/><stop offset="100%" stop-color="#004a38"/></linearGradient>
+          <linearGradient id="rg2" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#00f0e0"/><stop offset="100%" stop-color="#006050"/></linearGradient>
+        </defs>
+        <polygon points="2,4 11,4 21,47 12,47" fill="url(#rg1)"/>
+        <polygon points="11,4 21,4 17,22 7,22" fill="url(#rg2)" opacity="0.9"/>
+        <polygon points="17,4 30,4 21,47 11,47" fill="url(#rg2)"/>
+        <polygon points="12,32 21,47 13,47" fill="#003530" opacity="0.6"/>
+        <circle cx="33" cy="7" r="2.8" fill="#00c8b8"/>
+        <text x="42" y="39" font-family="Trebuchet MS,Arial Black,Arial,sans-serif" font-size="28" font-weight="900" fill="#fff" letter-spacing="2">VENIPS</text>
+        <circle cx="120" cy="11" r="3.2" fill="#00c8b8"/>
+      </svg>
+    </div>
     <div class="shop-sub">Gestion Commerciale</div>
   </div>
 
@@ -1258,7 +1286,7 @@ function printRecu() {
 
     /* HEADER */
     .hd{text-align:center;padding-bottom:8px;border-bottom:3px double #222;margin-bottom:10px;}
-    .hd-name{font-size:24px;font-weight:900;letter-spacing:4px;color:#111;}
+    .hd-logo-wrap{display:inline-block;background:#040e3b;border-radius:10px;padding:8px 14px;margin-bottom:5px;}
     .hd-info{font-size:10.5px;color:#444;margin-top:3px;line-height:1.6;}
 
     /* TITLE BADGE */
@@ -1316,7 +1344,21 @@ function printRecu() {
 
   <!-- En-tête -->
   <div class="hd">
-    <div class="hd-name">VENIPS</div>
+    <div class="hd-logo-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 205 52" width="130" height="34">
+        <defs>
+          <linearGradient id="rg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00d4c4"/><stop offset="100%" stop-color="#004a38"/></linearGradient>
+          <linearGradient id="rg2" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#00f0e0"/><stop offset="100%" stop-color="#006050"/></linearGradient>
+        </defs>
+        <polygon points="2,4 11,4 21,47 12,47" fill="url(#rg1)"/>
+        <polygon points="11,4 21,4 17,22 7,22" fill="url(#rg2)" opacity="0.9"/>
+        <polygon points="17,4 30,4 21,47 11,47" fill="url(#rg2)"/>
+        <polygon points="12,32 21,47 13,47" fill="#003530" opacity="0.6"/>
+        <circle cx="33" cy="7" r="2.8" fill="#00c8b8"/>
+        <text x="42" y="39" font-family="Trebuchet MS,Arial Black,Arial,sans-serif" font-size="28" font-weight="900" fill="#fff" letter-spacing="2">VENIPS</text>
+        <circle cx="120" cy="11" r="3.2" fill="#00c8b8"/>
+      </svg>
+    </div>
     <div class="hd-info">
       📍 Bailo Baya Marché<br>
       📞 628 880 354 / 625 185 910

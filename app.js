@@ -859,7 +859,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Menu mobile
   const menuToggle = document.getElementById('menuToggle');
   const sidebar = document.getElementById('sidebar');
-  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+  function openSidebar()  { sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); }
+  function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); }
+
+  menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
+  sidebarOverlay.addEventListener('click', closeSidebar);
+
+  // Fermer la sidebar au clic sur un nav item (mobile)
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => { if (window.innerWidth <= 480) closeSidebar(); });
+  });
 
   // Modals - fermeture
   document.querySelectorAll('.modal-close, [data-modal]').forEach(btn => {

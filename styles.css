@@ -667,31 +667,141 @@ body {
 /* ============================================
    RESPONSIVE
    ============================================ */
+
+/* ── Tablette paysage ── */
 @media (max-width: 1024px) {
   .section-row, .charts-grid {
     grid-template-columns: 1fr;
   }
 }
 
+/* ── Tablette portrait ── */
 @media (max-width: 768px) {
-  :root { --sidebar-w: 60px; }
+  :root { --sidebar-w: 64px; }
+
+  /* Sidebar compacte (icônes seulement) */
   .brand-name, .nav-label, .sidebar-footer { display: none; }
-  .sidebar-brand { justify-content: center; padding: 0; }
-  .nav-item { justify-content: center; padding: 14px; margin: 2px 4px; }
-  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .sidebar-brand { justify-content: center; padding: 0; min-height: var(--topbar-h); }
+  .nav-item { justify-content: center; padding: 14px 10px; margin: 2px 6px; border-radius: 12px; }
+
+  /* Topbar */
   .menu-toggle { display: block; }
   .main-content { margin-left: var(--sidebar-w); }
+
+  /* Contenu */
+  .page { padding: 16px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .kpi-card { padding: 14px; gap: 10px; }
+  .kpi-value { font-size: 1.1rem; }
+  .kpi-icon { font-size: 1.5rem; }
+
+  /* Page header */
+  .page-header { flex-wrap: wrap; gap: 10px; }
+  .page-header h2 { font-size: 1.2rem; }
+
+  /* Formulaires */
   .form-grid { grid-template-columns: 1fr; }
   .form-group.full-width { grid-column: span 1; }
+
+  /* Filtres */
+  .filters-bar { gap: 8px; }
+  .filter-input { flex: 1; min-width: 120px; }
+
+  /* Comparaison */
+  .comparison-grid { flex-wrap: wrap; gap: 8px; }
+  .comp-badge { width: 100%; text-align: center; }
+
+  /* Date dans topbar */
+  .date-display { display: none; }
 }
 
+/* ── Mobile ── */
 @media (max-width: 480px) {
   :root { --sidebar-w: 0px; }
-  .sidebar { transform: translateX(-240px); width: 240px; }
+
+  /* Sidebar en drawer */
+  .sidebar {
+    transform: translateX(-100%);
+    width: 240px;
+    z-index: 300;
+    transition: transform .25s ease;
+  }
   .sidebar.open { transform: translateX(0); }
+
+  /* Overlay sombre derrière la sidebar */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 299;
+  }
+  .sidebar-overlay.open { display: block; }
+
+  /* Restaurer labels dans le drawer */
+  .sidebar.open .brand-name,
+  .sidebar.open .nav-label,
+  .sidebar.open .sidebar-footer { display: block; }
+  .sidebar.open .sidebar-brand { justify-content: flex-start; padding: 0 20px; }
+  .sidebar.open .nav-item { justify-content: flex-start; padding: 12px 20px; margin: 2px 12px 2px 0; border-radius: 0 24px 24px 0; }
+
+  /* Main content plein écran */
   .main-content { margin-left: 0; }
-  .kpi-grid { grid-template-columns: 1fr; }
-  .summary-row { flex-direction: column; }
+
+  /* Topbar mobile */
+  .topbar { padding: 0 12px; gap: 10px; }
+  .menu-toggle { display: block; font-size: 1.4rem; }
+  .topbar-title { font-size: .95rem; }
+
+  /* Pages */
+  .page { padding: 12px; }
+
+  /* KPI */
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .kpi-card { padding: 12px 10px; gap: 8px; }
+  .kpi-value { font-size: 1rem; }
+  .kpi-icon { font-size: 1.3rem; }
+  .kpi-label { font-size: .7rem; }
+
+  /* Page header */
+  .page-header { margin-bottom: 14px; }
+  .page-header .btn { width: 100%; justify-content: center; }
+
+  /* Résumé */
+  .summary-row { flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .summary-card { min-width: unset; }
+
+  /* Filtres */
+  .filters-bar { flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .filter-input, .filters-bar .btn { width: 100%; }
+
+  /* Tables : scroll horizontal */
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+  .data-table { font-size: .78rem; }
+  .data-table th, .data-table td { padding: 8px 10px; }
+
+  /* Modals */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Grille graphiques */
+  .section-row, .charts-grid { gap: 10px; margin-bottom: 14px; }
+
+  /* Comparaison */
+  .comp-value { font-size: .95rem; }
+
+  /* Toast en bas à gauche sur mobile */
+  .toast-container { bottom: 12px; right: 12px; left: 12px; }
+  .toast { max-width: 100%; }
+
+  /* Net value */
+  .net-value { font-size: 1.5rem; }
 }
 
 /* ============================================

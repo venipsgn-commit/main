@@ -199,10 +199,10 @@ function renderDashboard() {
   } else {
     recentBody.innerHTML = recent.map(v => `
       <tr>
-        <td>${formatDate(v.date)}</td>
-        <td>${escHtml(v.produit)}</td>
-        <td>${v.qty}</td>
-        <td class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
+        <td data-label="Date">${formatDate(v.date)}</td>
+        <td data-label="Produit">${escHtml(v.produit)}</td>
+        <td data-label="Qté">${v.qty}</td>
+        <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
       </tr>`).join('');
   }
 
@@ -214,9 +214,9 @@ function renderDashboard() {
   } else {
     lowBody.innerHTML = lowItems.map(p => `
       <tr>
-        <td>${escHtml(p.nom)}</td>
-        <td>${p.qty}</td>
-        <td>${p.qty === 0
+        <td data-label="Produit">${escHtml(p.nom)}</td>
+        <td data-label="Qté">${p.qty}</td>
+        <td data-label="Statut">${p.qty === 0
           ? '<span class="badge badge-danger">Rupture</span>'
           : '<span class="badge badge-warning">Faible</span>'}</td>
       </tr>`).join('');
@@ -312,14 +312,14 @@ function renderVentes() {
   }
   tbody.innerHTML = ventes.map(v => `
     <tr>
-      <td>${formatDate(v.date)}</td>
-      <td>${escHtml(v.produit)}</td>
-      <td>${v.qty}</td>
-      <td>${fmt(v.pa)}</td>
-      <td>${fmt(v.pv)}</td>
-      <td class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
-      <td>${escHtml(v.vendeur || '—')}</td>
-      <td>
+      <td data-label="Date">${formatDate(v.date)}</td>
+      <td data-label="Produit">${escHtml(v.produit)}</td>
+      <td data-label="Qté">${v.qty}</td>
+      <td data-label="Prix Achat">${fmt(v.pa)}</td>
+      <td data-label="Prix Vente">${fmt(v.pv)}</td>
+      <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
+      <td data-label="Vendeur">${escHtml(v.vendeur || '—')}</td>
+      <td data-label="Actions">
         <button class="btn-icon" title="Modifier" onclick="openEditVente(${v.id})">✏️</button>
         <button class="btn-icon" title="Supprimer" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>
       </td>
@@ -477,13 +477,13 @@ function renderStock() {
       : '<span class="badge badge-success">Disponible</span>';
     const marge = p.pa > 0 ? (((p.pv - p.pa) / p.pa) * 100).toFixed(1) : 0;
     return `<tr>
-      <td><strong>${escHtml(p.nom)}</strong></td>
-      <td>${p.qty}</td>
-      <td>${fmt(p.pa)}</td>
-      <td>${fmt(p.pv)}</td>
-      <td class="${marge >= 0 ? 'gain-pos' : 'gain-neg'}">${marge}%</td>
-      <td>${statut}</td>
-      <td>
+      <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
+      <td data-label="Qté">${p.qty}</td>
+      <td data-label="Prix Achat">${fmt(p.pa)}</td>
+      <td data-label="Prix Vente">${fmt(p.pv)}</td>
+      <td data-label="Marge" class="${marge >= 0 ? 'gain-pos' : 'gain-neg'}">${marge}%</td>
+      <td data-label="Statut">${statut}</td>
+      <td data-label="Actions">
         <button class="btn btn-sm btn-secondary" onclick="openEditStock(${p.id})">✏️ Modifier</button>
         <button class="btn btn-sm btn-danger" onclick="confirmDelete('stock',${p.id},'le produit')">🗑️</button>
       </td>
@@ -566,17 +566,17 @@ function renderVendeurs() {
     const totalCA = ventesDu.reduce((s, x) => s + x.pv * x.qty, 0);
     const perf = Math.round((totalCA / maxCA) * 100);
     return `<tr>
-      <td><strong>${escHtml(v.nom)}</strong></td>
-      <td title="${produits}">${produits.length > 40 ? produits.slice(0, 40) + '…' : produits}</td>
-      <td>${fmtNum(totalQty)}</td>
-      <td>${fmt(totalCA)}</td>
-      <td>
+      <td data-label="Vendeur"><strong>${escHtml(v.nom)}</strong></td>
+      <td data-label="Produits" title="${produits}">${produits.length > 40 ? produits.slice(0, 40) + '…' : produits}</td>
+      <td data-label="Qtés">${fmtNum(totalQty)}</td>
+      <td data-label="Montant">${fmt(totalCA)}</td>
+      <td data-label="Performance">
         <div class="perf-bar">
           <div class="perf-track"><div class="perf-fill" style="width:${perf}%"></div></div>
           <span style="font-size:.8rem;color:var(--muted);min-width:30px">${perf}%</span>
         </div>
       </td>
-      <td>
+      <td data-label="Actions">
         <button class="btn btn-sm btn-secondary" onclick="openEditVendeur(${v.id})">✏️</button>
         <button class="btn btn-sm btn-danger" onclick="confirmDelete('vendeurs',${v.id},'le vendeur')">🗑️</button>
       </td>
@@ -645,11 +645,11 @@ function renderCharges() {
   const typeColors = { Courant: 'info', Location: 'warning', Réparation: 'danger', Salaire: 'success', Autre: '' };
   tbody.innerHTML = charges.map(c => `
     <tr>
-      <td>${formatDate(c.date)}</td>
-      <td><span class="badge badge-${typeColors[c.type] || 'info'}">${escHtml(c.type)}</span></td>
-      <td><strong>${fmt(c.montant)}</strong></td>
-      <td>${escHtml(c.desc || '—')}</td>
-      <td>
+      <td data-label="Date">${formatDate(c.date)}</td>
+      <td data-label="Type"><span class="badge badge-${typeColors[c.type] || 'info'}">${escHtml(c.type)}</span></td>
+      <td data-label="Montant"><strong>${fmt(c.montant)}</strong></td>
+      <td data-label="Description">${escHtml(c.desc || '—')}</td>
+      <td data-label="Actions">
         <button class="btn-icon" onclick="openEditCharge(${c.id})">✏️</button>
         <button class="btn-icon" onclick="confirmDelete('charges',${c.id},'la charge')">🗑️</button>
       </td>
@@ -728,14 +728,14 @@ function renderDettes() {
   }
   tbody.innerHTML = dettes.map(d => `
     <tr>
-      <td><strong>${escHtml(d.nom)}</strong></td>
-      <td><span class="badge ${d.type === 'Client doit' ? 'badge-success' : 'badge-danger'}">${escHtml(d.type)}</span></td>
-      <td>${fmt(d.montant)}</td>
-      <td>${formatDate(d.date)}</td>
-      <td>
+      <td data-label="Nom""><strong>${escHtml(d.nom)}</strong></td>
+      <td data-label="Type"><span class="badge ${d.type === 'Client doit' ? 'badge-success' : 'badge-danger'}">${escHtml(d.type)}</span></td>
+      <td data-label="Montant">${fmt(d.montant)}</td>
+      <td data-label="Date">${formatDate(d.date)}</td>
+      <td data-label="Statut">
         <span class="badge ${d.statut === 'Payé' ? 'badge-success' : 'badge-warning'}">${escHtml(d.statut)}</span>
       </td>
-      <td>
+      <td data-label="Actions">
         ${d.statut === 'Non payé' ? `<button class="btn btn-sm btn-success" onclick="markDettePaid(${d.id})">✓ Régler</button>` : ''}
         <button class="btn-icon" onclick="openEditDette(${d.id})">✏️</button>
         <button class="btn-icon" onclick="confirmDelete('dettes',${d.id},'la dette')">🗑️</button>

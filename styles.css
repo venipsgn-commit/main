@@ -791,10 +791,55 @@ body {
   .filters-bar { flex-direction: column; gap: 8px; margin-bottom: 12px; }
   .filter-input, .filters-bar .btn { width: 100%; }
 
-  /* Tables : scroll horizontal */
-  .table-wrap { -webkit-overflow-scrolling: touch; }
-  .data-table { font-size: .78rem; }
-  .data-table th, .data-table td { padding: 8px 10px; }
+  /* Tables → cartes sur mobile */
+  .table-wrap { overflow-x: unset; }
+  .data-table thead { display: none; }
+  .data-table,
+  .data-table tbody { display: block; width: 100%; }
+  .data-table tr {
+    display: block;
+    background: var(--white);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+    padding: 4px 0;
+    box-shadow: var(--shadow);
+  }
+  .data-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--bg);
+    font-size: .85rem;
+    gap: 8px;
+  }
+  .data-table td:last-child { border-bottom: none; }
+  .data-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: .72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    flex-shrink: 0;
+    min-width: 80px;
+  }
+  .data-table td[data-label="Actions"] {
+    justify-content: flex-end;
+    gap: 6px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .data-table td[data-label="Actions"]::before { display: none; }
+  /* Ligne vide (empty state) reste normale */
+  .data-table tr:has(.empty-state) {
+    border: none; box-shadow: none; background: transparent;
+  }
+  .data-table tr:has(.empty-state) td {
+    display: block; border: none;
+  }
+  .data-table tr:has(.empty-state) td::before { display: none; }
 
   /* Modals */
   .modal-overlay { align-items: flex-end; padding: 0; }

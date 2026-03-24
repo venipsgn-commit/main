@@ -1,5 +1,5 @@
 /* ============================================
-   BOUTIQUE PRO – RESET
+   VENIPS – RESET
    Efface toutes les données de la base
    ============================================ */
 
@@ -12,5 +12,5 @@
   localStorage.removeItem('bp_charges');
   localStorage.removeItem('bp_dettes');
 
-  console.log('🗑️ Boutique Pro – Base de données effacée.');
+  console.log('🗑️ VENIPS – Base de données effacée.');
 })();

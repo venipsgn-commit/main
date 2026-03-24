@@ -47,9 +47,10 @@ const AUTH = {
     if (titleUser) titleUser.textContent = user.display;
 
     if (user.role === 'vendeur') {
-      // JACOB : Ventes uniquement
+      // JACOB : Ventes + Stock visibles, reste masqué
       document.querySelectorAll('.nav-item').forEach(el => {
-        el.style.display = el.dataset.page === 'ventes' ? '' : 'none';
+        const p = el.dataset.page;
+        el.style.display = (p === 'ventes' || p === 'stock') ? '' : 'none';
       });
       // Auto-enregistrer comme vendeur si absent
       const nom = user.display;
@@ -386,34 +387,6 @@ function renderChart(canvasId, labels, data, label, color, existing, setter) {
 let editVenteId = null;
 
 function renderVentes() {
-  const isAdmin = AUTH.isAdmin();
-
-  // Affichage conditionnel selon le rôle
-  document.getElementById('vente-stats-admin').style.display = isAdmin ? '' : 'none';
-  document.getElementById('vente-stock-dispo').style.display = isAdmin ? 'none' : '';
-
-  // Stock disponible pour JACOB (lecture seule)
-  if (!isAdmin) {
-    const stock = DB.getAll('stock').sort((a, b) => a.nom.localeCompare(b.nom));
-    const sb = document.getElementById('stockDispoBody');
-    if (stock.length === 0) {
-      sb.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit en stock</p></div></td></tr>`;
-    } else {
-      sb.innerHTML = stock.map(p => {
-        const badge = p.qty === 0
-          ? '<span class="badge badge-danger">Rupture</span>'
-          : p.qty <= 5
-            ? '<span class="badge badge-warning">Faible</span>'
-            : '<span class="badge badge-success">Disponible</span>';
-        return `<tr>
-          <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
-          <td data-label="Qté disponible">${p.qty}</td>
-          <td data-label="Statut">${badge}</td>
-        </tr>`;
-      }).join('');
-    }
-  }
-
   let ventes = DB.getAll('ventes');
   const monthFilter = document.getElementById('filterVenteMonth').value;
   const searchFilter = document.getElementById('filterVenteSearch').value.toLowerCase();
@@ -426,14 +399,13 @@ function renderVentes() {
 
   ventes.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  if (isAdmin) {
-    const totalCA = ventes.reduce((s, v) => s + v.pv * v.qty, 0);
-    const totalGain = ventes.reduce((s, v) => s + v.gain, 0);
-    const totalQty = ventes.reduce((s, v) => s + v.qty, 0);
-    document.getElementById('vente-ca-filtered').textContent = fmt(totalCA);
-    document.getElementById('vente-gain-filtered').textContent = fmt(totalGain);
-    document.getElementById('vente-qty-filtered').textContent = fmtNum(totalQty);
-  }
+  const totalCA = ventes.reduce((s, v) => s + v.pv * v.qty, 0);
+  const totalGain = ventes.reduce((s, v) => s + v.gain, 0);
+  const totalQty = ventes.reduce((s, v) => s + v.qty, 0);
+
+  document.getElementById('vente-ca-filtered').textContent = fmt(totalCA);
+  document.getElementById('vente-gain-filtered').textContent = fmt(totalGain);
+  document.getElementById('vente-qty-filtered').textContent = fmtNum(totalQty);
 
   const tbody = document.getElementById('ventesBody');
   if (ventes.length === 0) {

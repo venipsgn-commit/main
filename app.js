@@ -304,8 +304,8 @@ function renderDashboard() {
     return MONTHS_FR[parseInt(mo) - 1] + ' ' + y.slice(2);
   });
 
-  renderChart('chartVentes', labels, salesByMonth, 'Ventes (FCFA)', '#4f46e5', chartVentes, c => chartVentes = c);
-  renderChart('chartGains', labels, gainsByMonth, 'Gains (FCFA)', '#10b981', chartGains, c => chartGains = c);
+  renderChart('chartVentes', labels, salesByMonth, 'Ventes (GNF)', '#4f46e5', chartVentes, c => chartVentes = c);
+  renderChart('chartGains', labels, gainsByMonth, 'Gains (GNF)', '#10b981', chartGains, c => chartGains = c);
 
   // Dernières ventes
   const recent = [...ventes].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);

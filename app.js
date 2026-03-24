@@ -242,6 +242,13 @@ let chartVentes = null;
 let chartGains = null;
 
 function renderDashboard() {
+  if (typeof Chart === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    s.onload = () => renderDashboard();
+    document.head.appendChild(s);
+    return;
+  }
   const ventes = DB.getAll('ventes');
   const stock = DB.getAll('stock');
   const charges = DB.getAll('charges');

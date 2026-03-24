@@ -588,6 +588,26 @@
   </div>
 </div>
 
+<!-- Modal: Reçu Vente -->
+<div class="modal-overlay" id="modalRecuVente">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>Imprimer le Reçu</h3>
+      <button class="modal-close" data-modal="modalRecuVente">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nom du Client *</label>
+        <input type="text" id="recu-client-nom" placeholder="Ex: Mamadou Diallo" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalRecuVente">Annuler</button>
+      <button class="btn btn-primary" id="btnPrintRecuVente">🖨️ Imprimer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Dialog -->
 <div class="modal-overlay" id="modalConfirm">
   <div class="modal modal-sm">

@@ -425,6 +425,7 @@ function renderVentes() {
       <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
       <td data-label="Vendeur">${escHtml(v.vendeur || '—')}</td>
       <td data-label="Actions">
+        <button class="btn-icon" onclick="openRecuVente(${v.id})">🖨️</button>
         <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️ Modifier</button>
         ${AUTH.isAdmin() ? `<button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>` : ''}
       </td>
@@ -451,6 +452,114 @@ function openAddVente() {
     populateVendeurSelect('vente-vendeur', AUTH.displayName());
   }
   showModal('modalVente');
+}
+
+let recuVenteId = null;
+
+function openRecuVente(id) {
+  recuVenteId = id;
+  document.getElementById('recu-client-nom').value = '';
+  showModal('modalRecuVente');
+  setTimeout(() => document.getElementById('recu-client-nom').focus(), 100);
+}
+
+function printRecuVente() {
+  const clientNom = document.getElementById('recu-client-nom').value.trim();
+  if (!clientNom) { toast('Veuillez saisir le nom du client.', 'error'); return; }
+  const v = DB.findById('ventes', recuVenteId);
+  if (!v) return;
+  hideModal('modalRecuVente');
+
+  const now = new Date();
+  const printDate = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const printTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const totalVente = v.pv * v.qty;
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Reçu Vente - ${clientNom}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; background: #fff; color: #111; }
+    .receipt { width: 80mm; margin: 0 auto; padding: 10mm 6mm; }
+    .header { text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 8px; margin-bottom: 12px; }
+    .shop-name { font-size: 22px; font-weight: bold; letter-spacing: 3px; }
+    .shop-sub { font-size: 11px; color: #555; margin-top: 2px; }
+    .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0; text-transform: uppercase; letter-spacing: 2px; }
+    .divider { border-top: 1px dashed #aaa; margin: 8px 0; }
+    .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+    .row .label { color: #555; }
+    .row .value { font-weight: bold; text-align: right; }
+    .total-box { text-align: center; margin: 14px 0; padding: 10px; border: 2px solid #111; border-radius: 4px; }
+    .total-box .tot-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+    .total-box .tot-value { font-size: 20px; font-weight: bold; margin-top: 4px; }
+    .footer { text-align: center; border-top: 2px dashed #ccc; padding-top: 10px; margin-top: 12px; font-size: 10px; color: #888; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+<div class="receipt">
+  <div class="header">
+    <div class="shop-name">VENIPS</div>
+    <div class="shop-sub">Gestion Commerciale</div>
+  </div>
+
+  <div class="title">Reçu de Vente</div>
+  <div class="divider"></div>
+
+  <div class="row">
+    <span class="label">Client</span>
+    <span class="value">${clientNom}</span>
+  </div>
+  <div class="row">
+    <span class="label">Date</span>
+    <span class="value">${formatDate(v.date)}</span>
+  </div>
+  <div class="row">
+    <span class="label">Vendeur</span>
+    <span class="value">${v.vendeur || '—'}</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row">
+    <span class="label">Produit</span>
+    <span class="value">${v.produit}</span>
+  </div>
+  <div class="row">
+    <span class="label">Quantité</span>
+    <span class="value">${v.qty}</span>
+  </div>
+  <div class="row">
+    <span class="label">Prix Unitaire</span>
+    <span class="value">${new Intl.NumberFormat('fr-FR').format(v.pv)} GNF</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="total-box">
+    <div class="tot-label">Total à Payer</div>
+    <div class="tot-value">${new Intl.NumberFormat('fr-FR').format(totalVente)} GNF</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="footer">
+    <p>Imprimé le ${printDate} à ${printTime}</p>
+    <p style="margin-top:4px;">Merci pour votre achat !</p>
+  </div>
+</div>
+<script>window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; }<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank', 'width=400,height=650');
+  w.document.write(html);
+  w.document.close();
 }
 
 function openEditVente(id) {
@@ -1114,6 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Boutons enregistrer
   document.getElementById('saveVente').addEventListener('click', saveVente);
+  document.getElementById('btnPrintRecuVente').addEventListener('click', printRecuVente);
   document.getElementById('saveStock').addEventListener('click', saveStock);
   document.getElementById('saveVendeur').addEventListener('click', saveVendeur);
   document.getElementById('saveCharge').addEventListener('click', saveCharge);

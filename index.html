@@ -239,11 +239,22 @@
       <button class="btn btn-secondary" id="filterVenteReset">Réinitialiser</button>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="summary-row">
+    <!-- Summary Cards (admin uniquement) -->
+    <div class="summary-row" id="vente-stats-admin">
       <div class="summary-card green"><span>CA Filtré</span><strong id="vente-ca-filtered">0 FCFA</strong></div>
       <div class="summary-card blue"><span>Gain Filtré</span><strong id="vente-gain-filtered">0 FCFA</strong></div>
       <div class="summary-card purple"><span>Qtés Vendues</span><strong id="vente-qty-filtered">0</strong></div>
+    </div>
+
+    <!-- Stock disponible (vendeur uniquement) -->
+    <div id="vente-stock-dispo" class="card stock-dispo-panel" style="display:none">
+      <div class="card-header"><h3>📦 Stock disponible</h3></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Produit</th><th>Qté disponible</th><th>Statut</th></tr></thead>
+          <tbody id="stockDispoBody"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="card">

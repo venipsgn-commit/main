@@ -865,7 +865,7 @@ function renderDettes() {
       </td>
       <td data-label="Actions">
         ${d.statut === 'Non payé' ? `<button class="btn btn-sm btn-success" onclick="markDettePaid(${d.id})">✓ Régler</button>` : ''}
-        <button class="btn btn-sm btn-secondary" onclick="printRecuDette(${d.id})">🖨️ Reçu</button>
+        <button class="btn-icon" onclick="printRecuDette(${d.id})">🖨️</button>
         <button class="btn-icon" onclick="openEditDette(${d.id})">✏️</button>
         <button class="btn-icon" onclick="confirmDelete('dettes',${d.id},'la dette')">🗑️</button>
       </td>

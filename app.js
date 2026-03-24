@@ -9,23 +9,25 @@
 // AUTHENTIFICATION
 // ============================================
 const AUTH = {
-  USER: 'VENIPS',
-  PASS: 'venips224@',
-  KEY:  'venips_auth',
+  USERS: [
+    { username: 'VENIPS', password: 'venips224@', role: 'admin',   display: 'VENIPS' },
+    { username: 'JACOB',  password: 'compilateur787', role: 'vendeur', display: 'JACOB'  }
+  ],
+  KEY: 'venips_session',
 
-  isLoggedIn() {
-    return sessionStorage.getItem(this.KEY) === '1';
+  currentUser() {
+    try { return JSON.parse(sessionStorage.getItem(this.KEY)); } catch { return null; }
   },
-  login(user, pass) {
-    if (user === this.USER && pass === this.PASS) {
-      sessionStorage.setItem(this.KEY, '1');
-      return true;
-    }
+  isLoggedIn()  { return !!this.currentUser(); },
+  isAdmin()     { return this.currentUser()?.role === 'admin'; },
+  displayName() { return this.currentUser()?.display || ''; },
+
+  login(username, password) {
+    const u = this.USERS.find(x => x.username === username && x.password === password);
+    if (u) { sessionStorage.setItem(this.KEY, JSON.stringify(u)); return true; }
     return false;
   },
-  logout() {
-    sessionStorage.removeItem(this.KEY);
-  }
+  logout() { sessionStorage.removeItem(this.KEY); }
 };
 
 (function initAuth() {
@@ -36,17 +38,38 @@ const AUTH = {
   const errEl    = document.getElementById('loginError');
   const eyeBtn   = document.getElementById('loginEye');
 
+  function applyRole() {
+    const user = AUTH.currentUser();
+    if (!user) return;
+
+    // Afficher le nom dans la topbar
+    const titleUser = document.getElementById('topbarUser');
+    if (titleUser) titleUser.textContent = user.display;
+
+    if (user.role === 'vendeur') {
+      // JACOB : masquer tout sauf Ventes
+      document.querySelectorAll('.nav-item').forEach(el => {
+        if (el.dataset.page !== 'ventes') el.style.display = 'none';
+      });
+      navigateTo('ventes');
+    } else {
+      // VENIPS admin : tout visible
+      document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
+    }
+  }
+
   function showApp() {
     screen.classList.add('hidden');
+    applyRole();
   }
   function showLogin() {
     screen.classList.remove('hidden');
+    // Réinitialiser la sidebar
+    document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
   }
 
-  // Déjà connecté ?
   if (AUTH.isLoggedIn()) { showApp(); } else { showLogin(); }
 
-  // Toggle mot de passe visible
   eyeBtn.addEventListener('click', () => {
     const isPass = passEl.type === 'password';
     passEl.type  = isPass ? 'text' : 'password';
@@ -71,7 +94,6 @@ const AUTH = {
   passEl.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
   userEl.addEventListener('keydown', e => { if (e.key === 'Enter') passEl.focus(); });
 
-  // Bouton déconnexion
   document.getElementById('btnLogout').addEventListener('click', () => {
     AUTH.logout();
     showLogin();
@@ -410,7 +432,16 @@ function openAddVente() {
   document.getElementById('vente-pv').value = '';
   document.getElementById('vente-gain').value = '';
   populateStockSelect('vente-produit');
-  populateVendeurSelect('vente-vendeur');
+
+  const sel = document.getElementById('vente-vendeur');
+  if (!AUTH.isAdmin()) {
+    // JACOB : vendeur fixé, champ désactivé
+    sel.innerHTML = `<option value="${AUTH.displayName()}" selected>${AUTH.displayName()}</option>`;
+    sel.disabled = true;
+  } else {
+    sel.disabled = false;
+    populateVendeurSelect('vente-vendeur', AUTH.displayName());
+  }
   showModal('modalVente');
 }
 
@@ -507,7 +538,8 @@ function saveVente() {
     toast('Vente modifiée avec succès.');
   } else {
     DB.insert('ventes', record);
-    toast('Vente enregistrée avec succès.');
+    const who = AUTH.displayName();
+    toast(`✅ ${who} a ajouté une vente — ${produit}`, 'success');
   }
 
   hideModal('modalVente');

@@ -40,6 +40,7 @@ body {
   color: var(--dark);
   min-height: 100vh;
   display: flex;
+  overflow-x: hidden;
 }
 
 /* ============================================
@@ -767,9 +768,24 @@ body {
   .page-header { margin-bottom: 14px; }
   .page-header .btn { width: 100%; justify-content: center; }
 
-  /* Résumé */
-  .summary-row { flex-direction: column; gap: 8px; margin-bottom: 12px; }
-  .summary-card { min-width: unset; }
+  /* Résumé — grille 2 colonnes compactes */
+  .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: unset;
+  }
+  /* Si 3 cartes : la 3e prend toute la largeur */
+  .summary-row .summary-card:last-child:nth-child(odd) {
+    grid-column: span 2;
+  }
+  .summary-card {
+    min-width: unset;
+    padding: 10px 12px;
+  }
+  .summary-card span { font-size: .68rem; }
+  .summary-card strong { font-size: .95rem; }
 
   /* Filtres */
   .filters-bar { flex-direction: column; gap: 8px; margin-bottom: 12px; }

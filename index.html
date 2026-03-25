@@ -357,33 +357,53 @@
     </div>
 
     <div class="summary-row">
-      <div class="summary-card red"><span>Total Charges</span><strong id="charges-total">0 GNF</strong></div>
-      <div class="summary-card orange"><span>Ce Mois</span><strong id="charges-month">0 GNF</strong></div>
+      <div class="summary-card red"><span>🏪 Total Boutique</span><strong id="charges-boutique-total">0 GNF</strong></div>
+      <div class="summary-card orange"><span>👤 Total Personnelle</span><strong id="charges-perso-total">0 GNF</strong></div>
+      <div class="summary-card" id="budget-summary-card"><span>💰 Budget Restant</span><strong id="charges-budget-restant">0 GNF</strong></div>
+    </div>
+
+    <!-- Barre budget personnel -->
+    <div class="budget-bar-wrap" id="budgetBarWrap">
+      <div class="budget-bar-label">
+        <span>Budget Personnel &nbsp;<strong id="budget-used-lbl">0 GNF</strong> dépensé sur 3 500 000 GNF</span>
+        <span class="budget-status-badge" id="budgetStatusBadge"></span>
+      </div>
+      <div class="budget-bar-track">
+        <div class="budget-bar-fill" id="budgetBarFill"></div>
+      </div>
     </div>
 
     <div class="filters-bar">
       <input type="month" id="filterChargeMonth" class="filter-input" />
-      <select id="filterChargeType" class="filter-input">
-        <option value="">Tous les types</option>
-        <option value="Courant">Courant</option>
-        <option value="Location">Location</option>
-        <option value="Réparation">Réparation</option>
-        <option value="Salaire">Salaire</option>
-        <option value="Autre">Autre</option>
-      </select>
       <button class="btn btn-secondary" id="filterChargeReset">Réinitialiser</button>
     </div>
 
-    <div class="card">
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Date</th><th>Type</th><th>Montant</th><th>Description</th><th>Actions</th></tr>
-          </thead>
-          <tbody id="chargesBody"></tbody>
-        </table>
+    <!-- Deux colonnes -->
+    <div class="charges-cols">
+      <div class="charges-col">
+        <div class="charges-col-header boutique">🏪 Charges Boutique</div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Description</th><th>Actions</th></tr></thead>
+              <tbody id="chargesBoutiqueBody"></tbody>
+            </table>
+          </div>
+          <div id="chargesBoutiquePageBar"></div>
+        </div>
       </div>
-      <div id="chargesPageBar"></div>
+      <div class="charges-col">
+        <div class="charges-col-header perso">👤 Charges Personnelles</div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Description</th><th>Actions</th></tr></thead>
+              <tbody id="chargesPersoBody"></tbody>
+            </table>
+          </div>
+          <div id="chargesPersoPageBar"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -691,6 +711,13 @@
     </div>
     <div class="modal-body">
       <div class="form-grid">
+        <div class="form-group">
+          <label>Catégorie *</label>
+          <select id="charge-categorie" required>
+            <option value="Boutique">🏪 Boutique</option>
+            <option value="Personnelle">👤 Personnelle</option>
+          </select>
+        </div>
         <div class="form-group">
           <label>Date *</label>
           <input type="date" id="charge-date" required />

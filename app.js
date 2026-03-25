@@ -296,7 +296,7 @@ const EDIT = {
 // PAGINATION
 // ============================================
 const PAGE_SIZE = 20;
-const PAGE = { ventes: 1, stock: 1, charges: 1, dettes: 1, defectueux: 1 };
+const PAGE = { ventes: 1, stock: 1, charges: 1, chargesBoutique: 1, chargesPerso: 1, dettes: 1, defectueux: 1 };
 
 function paginate(items, table) {
   const total = items.length;
@@ -1085,46 +1085,85 @@ function saveVendeur() {
 // ============================================
 
 
+const BUDGET_PERSO = 3500000;
+
 function renderCharges() {
-  let charges = DB.getAll('charges');
+  let allCharges = DB.getAll('charges');
   const monthFilter = document.getElementById('filterChargeMonth').value;
-  const typeFilter = document.getElementById('filterChargeType').value;
 
-  const total = charges.reduce((s, c) => s + c.montant, 0);
-  const thisMonth = charges.filter(c => ym(c.date) === currentYM()).reduce((s, c) => s + c.montant, 0);
-  document.getElementById('charges-total').textContent = fmt(total);
-  document.getElementById('charges-month').textContent = fmt(thisMonth);
+  // Totaux globaux (tous mois)
+  const totalBoutique = allCharges.filter(c => c.categorie !== 'Personnelle').reduce((s, c) => s + c.montant, 0);
+  const totalPerso    = allCharges.filter(c => c.categorie === 'Personnelle').reduce((s, c) => s + c.montant, 0);
+  document.getElementById('charges-boutique-total').textContent = fmt(totalBoutique);
+  document.getElementById('charges-perso-total').textContent    = fmt(totalPerso);
 
-  if (monthFilter) charges = charges.filter(c => ym(c.date) === monthFilter);
-  if (typeFilter) charges = charges.filter(c => c.type === typeFilter);
+  // Budget personnel : basé sur le mois affiché (ou mois courant)
+  const budgetMonth = monthFilter || currentYM();
+  const depenseMois = allCharges
+    .filter(c => c.categorie === 'Personnelle' && ym(c.date) === budgetMonth)
+    .reduce((s, c) => s + c.montant, 0);
+  const restant = BUDGET_PERSO - depenseMois;
+  const pct     = Math.min(100, Math.round((depenseMois / BUDGET_PERSO) * 100));
+
+  document.getElementById('charges-budget-restant').textContent = fmt(Math.max(0, restant));
+  document.getElementById('budget-used-lbl').textContent        = fmt(depenseMois);
+
+  const fill  = document.getElementById('budgetBarFill');
+  const badge = document.getElementById('budgetStatusBadge');
+  const card  = document.getElementById('budget-summary-card');
+  fill.style.width = pct + '%';
+  if (pct >= 100) {
+    fill.className  = 'budget-bar-fill danger';
+    badge.className = 'budget-status-badge badge-danger';
+    badge.textContent = '🔴 Budget épuisé !';
+    card.className  = 'summary-card red';
+  } else if (pct >= 75) {
+    fill.className  = 'budget-bar-fill warning';
+    badge.className = 'budget-status-badge badge-warning';
+    badge.textContent = '⚠️ Presque épuisé';
+    card.className  = 'summary-card orange';
+  } else {
+    fill.className  = 'budget-bar-fill ok';
+    badge.textContent = '';
+    card.className  = 'summary-card green';
+  }
+
+  // Filtre par mois
+  let charges = monthFilter ? allCharges.filter(c => ym(c.date) === monthFilter) : allCharges;
   charges.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const tbody = document.getElementById('chargesBody');
-  const paginEl = document.getElementById('chargesPageBar');
-  if (charges.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">💸</div><p>Aucune charge trouvée</p></div></td></tr>`;
-    if (paginEl) paginEl.innerHTML = '';
-    return;
-  }
   const typeColors = { Courant: 'info', Location: 'warning', Réparation: 'danger', Salaire: 'success', Autre: '' };
-  const { items: chargesPage, total: tot, pages, page } = paginate(charges, 'charges');
-  tbody.innerHTML = chargesPage.map(c => `
-    <tr>
-      <td data-label="Date">${formatDate(c.date)}</td>
-      <td data-label="Type"><span class="badge badge-${typeColors[c.type] || 'info'}">${escHtml(c.type)}</span></td>
-      <td data-label="Montant"><strong>${fmt(c.montant)}</strong></td>
-      <td data-label="Description">${escHtml(c.desc || '—')}</td>
-      <td data-label="Actions">
-        <button class="btn-icon" onclick="openEditCharge(${c.id})">✏️</button>
-        <button class="btn-icon" onclick="confirmDelete('charges',${c.id},'la charge')">🗑️</button>
-      </td>
-    </tr>`).join('');
-  if (paginEl) paginEl.innerHTML = paginationBar('charges', pages, page, tot);
+  function buildRows(list, tbodyId, pageBarId, pageKey) {
+    const tbody   = document.getElementById(tbodyId);
+    const paginEl = document.getElementById(pageBarId);
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">💸</div><p>Aucune charge</p></div></td></tr>`;
+      if (paginEl) paginEl.innerHTML = '';
+      return;
+    }
+    const { items, total: tot, pages, page } = paginate(list, pageKey);
+    tbody.innerHTML = items.map(c => `
+      <tr>
+        <td data-label="Date">${formatDate(c.date)}</td>
+        <td data-label="Type"><span class="badge badge-${typeColors[c.type] || 'info'}">${escHtml(c.type || '—')}</span></td>
+        <td data-label="Montant"><strong>${fmt(c.montant)}</strong></td>
+        <td data-label="Description">${escHtml(c.desc || '—')}</td>
+        <td data-label="Actions">
+          <button class="btn-icon" onclick="openEditCharge(${c.id})">✏️</button>
+          <button class="btn-icon" onclick="confirmDelete('charges',${c.id},'la charge')">🗑️</button>
+        </td>
+      </tr>`).join('');
+    if (paginEl) paginEl.innerHTML = paginationBar(pageKey, pages, page, tot);
+  }
+
+  buildRows(charges.filter(c => c.categorie !== 'Personnelle'), 'chargesBoutiqueBody', 'chargesBoutiquePageBar', 'chargesBoutique');
+  buildRows(charges.filter(c => c.categorie === 'Personnelle'),  'chargesPersoBody',    'chargesPersoPageBar',    'chargesPerso');
 }
 
 function openAddCharge() {
   EDIT.chargeId = null;
   document.getElementById('modalChargeTitle').textContent = 'Ajouter Charge';
+  document.getElementById('charge-categorie').value = 'Boutique';
   document.getElementById('charge-date').value = today();
   document.getElementById('charge-type').value = '';
   document.getElementById('charge-montant').value = '';
@@ -1137,6 +1176,7 @@ function openEditCharge(id) {
   if (!c) return;
   EDIT.chargeId = id;
   document.getElementById('modalChargeTitle').textContent = 'Modifier Charge';
+  document.getElementById('charge-categorie').value = c.categorie || 'Boutique';
   document.getElementById('charge-date').value = c.date;
   document.getElementById('charge-type').value = c.type;
   document.getElementById('charge-montant').value = c.montant;
@@ -1145,20 +1185,21 @@ function openEditCharge(id) {
 }
 
 function saveCharge() {
-  const date = document.getElementById('charge-date').value;
-  const type = document.getElementById('charge-type').value;
-  const montant = parseFloat(document.getElementById('charge-montant').value);
-  const desc = document.getElementById('charge-desc').value.trim();
+  const categorie = document.getElementById('charge-categorie').value;
+  const date      = document.getElementById('charge-date').value;
+  const type      = document.getElementById('charge-type').value;
+  const montant   = parseFloat(document.getElementById('charge-montant').value);
+  const desc      = document.getElementById('charge-desc').value.trim();
 
   if (!date || !type || isNaN(montant) || montant <= 0) {
     toast('Veuillez remplir tous les champs obligatoires.', 'error'); return;
   }
 
   if (EDIT.chargeId) {
-    DB.update('charges', EDIT.chargeId, { date, type, montant, desc });
+    DB.update('charges', EDIT.chargeId, { date, type, montant, desc, categorie });
     toast('Charge modifiée.');
   } else {
-    DB.insert('charges', { date, type, montant, desc });
+    DB.insert('charges', { date, type, montant, desc, categorie });
     toast('Charge ajoutée.');
   }
   hideModal('modalCharge');
@@ -1796,7 +1837,7 @@ function exportCSV(table) {
   const HEADERS = {
     ventes:   ['Date', 'Produit', 'Qté', 'Prix Achat', 'Prix Vente', 'Gain', 'Vendeur', 'Stock Avant', 'Stock Après'],
     stock:    ['Produit', 'Stock Initial', 'Prix Achat', 'Prix Vente'],
-    charges:  ['Date', 'Type', 'Montant', 'Description'],
+    charges:  ['Date', 'Catégorie', 'Type', 'Montant', 'Description'],
     dettes:      ['Nom', 'Type', 'Montant', 'Date', 'Statut'],
     vendeurs:    ['Nom'],
     defectueux:  ['Date', 'Produit', 'Qté', 'Problème', 'Solution', 'Statut'],
@@ -1804,7 +1845,7 @@ function exportCSV(table) {
   const ROWS = {
     ventes:      d => [d.date, d.produit, d.qty, d.pa, d.pv, d.gain, d.vendeur || '', d.stockAvant ?? '', d.stockApres ?? ''],
     stock:       d => [d.nom, d.qtyInitial ?? d.qty, d.pa, d.pv],
-    charges:     d => [d.date, d.type || '', d.montant, d.desc || ''],
+    charges:     d => [d.date, d.categorie || 'Boutique', d.type || '', d.montant, d.desc || ''],
     dettes:      d => [d.nom, d.type || '', d.montant, d.date || '', d.statut],
     vendeurs:    d => [d.nom],
     defectueux:  d => [d.date, d.produit, d.qty, d.probleme, d.solution || '', d.statut],
@@ -1998,10 +2039,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Filtres Charges
   document.getElementById('filterChargeMonth').addEventListener('change', renderCharges);
-  document.getElementById('filterChargeType').addEventListener('change', renderCharges);
   document.getElementById('filterChargeReset').addEventListener('click', () => {
     document.getElementById('filterChargeMonth').value = '';
-    document.getElementById('filterChargeType').value = '';
     renderCharges();
   });
 

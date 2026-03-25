@@ -22,7 +22,7 @@ const TABLE_COLS = {
   stock:       ['nom', 'pa', 'pv', 'qtyInitial', 'createdAt', 'updatedAt'],
   ventes:      ['date', 'produit', 'qty', 'pa', 'pv', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'createdAt', 'updatedAt'],
   vendeurs:    ['nom', 'createdAt', 'updatedAt'],
-  charges:     ['date', 'type', 'montant', 'desc', 'createdAt', 'updatedAt'],
+  charges:     ['date', 'type', 'montant', 'desc', 'categorie', 'createdAt', 'updatedAt'],
   dettes:      ['nom', 'type', 'montant', 'date', 'statut', 'createdAt', 'updatedAt'],
   defectueux:  ['date', 'produit', 'qty', 'probleme', 'solution', 'statut', 'createdAt', 'updatedAt'],
 };
@@ -115,6 +115,7 @@ db.exec(`
     type      TEXT,
     montant   REAL    NOT NULL DEFAULT 0,
     desc      TEXT,
+    categorie TEXT    NOT NULL DEFAULT 'Boutique',
     createdAt TEXT,
     updatedAt TEXT
   );
@@ -146,6 +147,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_defectueux_produit ON defectueux(produit);
   CREATE INDEX IF NOT EXISTS idx_defectueux_statut  ON defectueux(statut);
 `);
+
+// ── Migration colonnes ajoutées ───────────────────────────────────────────────
+(function migrateColumns() {
+  const cols = db.prepare("PRAGMA table_info(charges)").all().map(r => r.name);
+  if (!cols.includes('categorie')) {
+    db.prepare("ALTER TABLE charges ADD COLUMN categorie TEXT NOT NULL DEFAULT 'Boutique'").run();
+  }
+})();
 
 // ── Migration unique : records → vraies tables ────────────────────────────────
 (function migrateFromRecords() {

@@ -1582,9 +1582,29 @@ function updateDateDisplay() {
 }
 
 // ============================================
+// DARK MODE
+// ============================================
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark') {
+    document.body.classList.add('dark');
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = '☀️';
+  }
+}
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+
+// ============================================
 // INITIALISATION & EVENT LISTENERS
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   await DB.init();
   updateDateDisplay();
 
@@ -1603,6 +1623,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
   sidebarOverlay.addEventListener('click', closeSidebar);
+
+  // Dark mode toggle
+  document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
   // Fermer la sidebar au clic sur un nav item (mobile)
   document.querySelectorAll('.nav-item').forEach(item => {

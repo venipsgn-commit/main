@@ -1148,6 +1148,54 @@ body {
 }
 
 /* ============================================
+   DARK MODE TOGGLE BUTTON
+   ============================================ */
+.btn-theme-toggle {
+  background: none;
+  border: 1.5px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.btn-theme-toggle:hover { background: var(--bg); color: var(--dark); }
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+body.dark {
+  --bg:         #0f172a;
+  --white:      #1e293b;
+  --dark:       #e2e8f0;
+  --dark-light: #94a3b8;
+  --border:     #334155;
+  --muted:      #94a3b8;
+  --shadow:     0 1px 3px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:  0 4px 6px -1px rgba(0,0,0,.5), 0 2px 4px -2px rgba(0,0,0,.4);
+  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,.5), 0 4px 6px -4px rgba(0,0,0,.4);
+}
+
+/* Table row hover */
+body.dark .data-table tbody tr:hover { background: #243045; }
+
+/* Login card */
+body.dark .login-card { background: #1e293b; }
+body.dark .login-field input { background: #0f172a; color: #e2e8f0; }
+body.dark .login-subtitle { color: #94a3b8; }
+
+/* KPI cards dark variant */
+body.dark .kpi-card.dark { background: #243045; }
+
+/* Chatbot */
+body.dark .chatbot-messages { background: #0f172a; }
+body.dark .msg-bot { background: #334155; color: #e2e8f0; }
+body.dark .chatbot-input-bar input { background: #1e293b; color: #e2e8f0; }
+
+/* ============================================
    PRINT
    ============================================ */
 @media print {

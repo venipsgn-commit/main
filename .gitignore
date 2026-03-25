@@ -1,3 +1,5 @@
 node_modules/
 venips.db
+venips.db-shm
+venips.db-wal
 .env

@@ -1710,6 +1710,14 @@ async function downloadBackup() {
 
   try {
     const r = await fetch('/api/backup/download', { headers: DB._headers() });
+    if (r.status === 401 || r.status === 403) {
+      // Token absent ou invalide → fallback sur le cache en mémoire
+      const backup = {};
+      ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'].forEach(t => { backup[t] = DB.getAll(t); });
+      triggerDownload(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }), filename);
+      toast('Backup téléchargé depuis le cache.', 'success');
+      return;
+    }
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       toast(`Erreur backup : ${err.error || r.status}`, 'error');
@@ -1719,7 +1727,11 @@ async function downloadBackup() {
     triggerDownload(blob, filename);
     toast('Backup téléchargé avec succès.', 'success');
   } catch (e) {
-    toast(`Impossible de télécharger le backup : ${e.message}`, 'error');
+    // Réseau indisponible → fallback cache
+    const backup = {};
+    ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'].forEach(t => { backup[t] = DB.getAll(t); });
+    triggerDownload(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }), filename);
+    toast('Backup téléchargé depuis le cache.', 'success');
   }
 }
 

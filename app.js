@@ -104,6 +104,8 @@ const AUTH = {
     const pass = passEl.value;
     if (await AUTH.login(user, pass)) {
       errEl.classList.remove('show');
+      // Relancer DB.init() avec le nouveau token pour connecter Supabase
+      await DB.init();
       showApp();
     } else {
       errEl.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
@@ -148,9 +150,11 @@ const DB = {
         signal: AbortSignal.timeout(3000)
       });
       if (test.status === 401) {
-        // Token manquant ou expiré → forcer re-connexion
-        AUTH.logout();
-        document.getElementById('loginScreen').classList.remove('hidden');
+        // Token manquant ou expiré → forcer re-connexion seulement si pas en train de login
+        if (AUTH.isLoggedIn()) {
+          AUTH.logout();
+          document.getElementById('loginScreen').classList.remove('hidden');
+        }
         return;
       }
       if (test.ok || test.status === 200) {

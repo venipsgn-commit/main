@@ -693,11 +693,14 @@ function openEditVente(id) {
 function populateStockSelect(selectId, selectedNom = '') {
   const sel = document.getElementById(selectId);
   const stock = DB.getAll('stock');
+  const ventes = DB.getAll('ventes');
   sel.innerHTML = '<option value="">-- Sélectionner --</option>';
   stock.forEach(p => {
+    const totalVendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+    const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - totalVendu);
     const opt = document.createElement('option');
     opt.value = p.nom;
-    opt.textContent = `${p.nom} (stock: ${p.qty})`;
+    opt.textContent = `${p.nom} (restant: ${restant})`;
     opt.dataset.pa = p.pa;
     opt.dataset.pv = p.pv;
     if (p.nom === selectedNom) opt.selected = true;
@@ -750,29 +753,18 @@ function saveVente() {
 
   const stockItem = DB.getAll('stock').find(s => s.nom === produit);
   const gain = (pv - pa) * qty;
-  let stockAvant = stockItem ? stockItem.qty : null;
-  let stockApres = stockAvant !== null ? stockAvant - qty : null;
 
-  if (!editVenteId) {
-    // Nouvelle vente : vérifier et déduire du stock
-    if (stockItem && stockItem.qty < qty) {
-      toast(`Stock insuffisant. Disponible : ${stockItem.qty}`, 'error'); return;
-    }
-    if (stockItem) {
-      DB.update('stock', stockItem.id, { qty: stockItem.qty - qty });
-    }
-  } else {
-    // Modification de vente : recalculer la différence de stock
-    const oldVente = DB.findById('ventes', editVenteId);
-    if (stockItem && oldVente && oldVente.produit === produit) {
-      const diff = qty - (oldVente.qty || 0);
-      const newQty = stockItem.qty - diff;
-      if (newQty < 0) {
-        toast(`Stock insuffisant. Disponible : ${stockItem.qty}`, 'error'); return;
-      }
-      DB.update('stock', stockItem.id, { qty: newQty });
-      stockApres = newQty;
-    }
+  // Calculer le stock restant dynamiquement
+  const toutesVentes = DB.getAll('ventes');
+  const totalDejaVendu = toutesVentes
+    .filter(v => v.produit === produit && v.id !== editVenteId)
+    .reduce((s, v) => s + (v.qty || 0), 0);
+  const qtyInitial = stockItem ? (stockItem.qtyInitial ?? stockItem.qty ?? 0) : 0;
+  const stockAvant = qtyInitial - totalDejaVendu;
+  const stockApres = stockAvant - qty;
+
+  if (stockApres < 0) {
+    toast(`Stock insuffisant. Disponible : ${stockAvant}`, 'error'); return;
   }
 
   const record = { date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres };
@@ -831,9 +823,11 @@ function renderStock() {
     tbody.innerHTML = `<tr><td colspan="${isAdmin ? 8 : 4}"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
     return;
   }
+  const toutesVentes = DB.getAll('ventes');
   tbody.innerHTML = stock.map(p => {
     const initial = p.qtyInitial ?? p.qty;
-    const restant = p.qty;
+    const totalVendu = toutesVentes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+    const restant = Math.max(0, initial - totalVendu);
     const statut = restant === 0 ? '<span class="badge badge-danger">Rupture</span>'
       : restant <= 5 ? '<span class="badge badge-warning">Faible</span>'
       : '<span class="badge badge-success">Disponible</span>';
@@ -887,7 +881,7 @@ function openEditStock(id) {
   editStockId = id;
   document.getElementById('modalStockTitle').textContent = 'Modifier Produit';
   document.getElementById('stock-nom').value = p.nom;
-  document.getElementById('stock-qty').value = p.qty;
+  document.getElementById('stock-qty').value = p.qtyInitial ?? p.qty;
   document.getElementById('stock-pa').value = p.pa;
   document.getElementById('stock-pv').value = p.pv;
   showModal('modalStock');
@@ -910,13 +904,11 @@ function saveStock() {
   if (existing) { toast('Un produit avec ce nom existe déjà.', 'error'); return; }
 
   if (editStockId) {
-    const existing = DB.findById('stock', editStockId);
-    // qtyInitial ne change JAMAIS après la création du produit
-    const qtyInitial = existing?.qtyInitial ?? existing?.qty ?? qty;
-    DB.update('stock', editStockId, { nom, qty, pa, pv, qtyInitial });
+    // qty saisie = nouveau stock initial, le restant se recalcule auto depuis les ventes
+    DB.update('stock', editStockId, { nom, pa, pv, qtyInitial: qty });
     toast('Produit modifié avec succès.');
   } else {
-    DB.insert('stock', { nom, qty, pa, pv, qtyInitial: qty });
+    DB.insert('stock', { nom, pa, pv, qtyInitial: qty });
     toast('Produit ajouté avec succès.');
   }
   hideModal('modalStock');

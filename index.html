@@ -38,6 +38,9 @@
     <li class="nav-item" data-page="recus">
       <span class="nav-icon">🧾</span><span class="nav-label">Reçus</span>
     </li>
+    <li class="nav-item" data-page="chatbot">
+      <span class="nav-icon">🤖</span><span class="nav-label">Assistant IA</span>
+    </li>
   </ul>
   <div class="sidebar-footer">
     <button class="btn-logout" id="btnLogout" title="Se déconnecter">
@@ -459,6 +462,33 @@
       <div class="modal-footer" style="margin-top:16px; padding:0; border:none;">
         <button class="btn btn-primary" id="btnPrintRecu">🖨️ Imprimer le Reçu</button>
       </div>
+    </div>
+  </section>
+
+  <!-- PAGE: CHATBOT -->
+  <section class="page" id="page-chatbot">
+    <div class="page-header">
+      <h2>🤖 Assistant IA – Analyse de Boutique</h2>
+      <p>Posez vos questions sur votre boutique, ventes, stock et finances.</p>
+    </div>
+
+    <div class="chatbot-suggestions">
+      <button class="suggestion-btn" data-q="Donne-moi une analyse générale de ma boutique">📊 Analyse générale</button>
+      <button class="suggestion-btn" data-q="Quels sont mes produits les plus rentables ?">💰 Produits rentables</button>
+      <button class="suggestion-btn" data-q="Quel est mon bénéfice net ce mois ?">📈 Bénéfice du mois</button>
+      <button class="suggestion-btn" data-q="Quels produits sont en rupture de stock ?">📦 Ruptures de stock</button>
+      <button class="suggestion-btn" data-q="Résume mes dettes en cours">🤝 Dettes en cours</button>
+    </div>
+
+    <div class="chatbot-window" id="chatbotWindow">
+      <div class="chat-message bot">
+        <div class="chat-bubble">Bonjour ! Je suis votre assistant IA VENIPS. Je peux analyser vos ventes, stock, charges et finances en temps réel. Que voulez-vous savoir ?</div>
+      </div>
+    </div>
+
+    <div class="chatbot-input-bar">
+      <input type="text" id="chatInput" placeholder="Ex: Quel est mon chiffre d'affaires ce mois ?" />
+      <button class="btn btn-primary" id="chatSendBtn">Envoyer</button>
     </div>
   </section>
 

@@ -1636,3 +1636,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 });
+
+// ============================================
+// CHATBOT IA
+// ============================================
+(function initChatbot() {
+  const window_  = document.getElementById('chatbotWindow');
+  const input    = document.getElementById('chatInput');
+  const sendBtn  = document.getElementById('chatSendBtn');
+
+  function addMessage(text, role) {
+    const div = document.createElement('div');
+    div.className = `chat-message ${role}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.textContent = text;
+    div.appendChild(bubble);
+    window_.appendChild(div);
+    window_.scrollTop = window_.scrollHeight;
+    return div;
+  }
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    addMessage(text, 'user');
+    input.value = '';
+    sendBtn.disabled = true;
+
+    const typing = addMessage('En train d\'analyser vos données...', 'typing');
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+      typing.remove();
+      addMessage(data.reply || 'Désolé, une erreur s\'est produite.', 'bot');
+    } catch {
+      typing.remove();
+      addMessage('Erreur de connexion. Vérifiez votre connexion internet.', 'bot');
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  if (sendBtn) {
+    sendBtn.addEventListener('click', () => sendMessage(input.value));
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(input.value); });
+  }
+
+  document.querySelectorAll('.suggestion-btn').forEach(btn => {
+    btn.addEventListener('click', () => sendMessage(btn.dataset.q));
+  });
+})();

@@ -797,28 +797,41 @@ function renderStock() {
   // Afficher/masquer les colonnes financières selon le rôle
   const stockThs = document.querySelectorAll('#page-stock thead th');
   // indices: 0=Produit, 1=Qté, 2=PrixAchat, 3=PrixVente, 4=Marge, 5=Statut, 6=Actions
-  [2, 3, 4, 6].forEach(i => { if (stockThs[i]) stockThs[i].style.display = isAdmin ? '' : 'none'; });
+  [3, 4, 5, 7].forEach(i => { if (stockThs[i]) stockThs[i].style.display = isAdmin ? '' : 'none'; });
 
   const tbody = document.getElementById('stockBody');
   if (stock.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${isAdmin ? 7 : 3}"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${isAdmin ? 8 : 4}"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = stock.map(p => {
-    const statut = p.qty === 0 ? '<span class="badge badge-danger">Rupture</span>'
-      : p.qty <= 5 ? '<span class="badge badge-warning">Faible</span>'
+    const initial = p.qtyInitial ?? p.qty;
+    const restant = p.qty;
+    const statut = restant === 0 ? '<span class="badge badge-danger">Rupture</span>'
+      : restant <= 5 ? '<span class="badge badge-warning">Faible</span>'
       : '<span class="badge badge-success">Disponible</span>';
+    const pctRestant = initial > 0 ? Math.round((restant / initial) * 100) : 0;
+    const barColor = pctRestant > 50 ? '#10b981' : pctRestant > 20 ? '#f59e0b' : '#ef4444';
+    const progressBar = `<div style="display:flex;align-items:center;gap:6px;">
+      <span>${restant}</span>
+      <div style="flex:1;background:#e2e8f0;border-radius:4px;height:6px;min-width:50px;">
+        <div style="width:${pctRestant}%;background:${barColor};height:6px;border-radius:4px;transition:width .3s;"></div>
+      </div>
+      <span style="font-size:.75rem;color:#64748b">${pctRestant}%</span>
+    </div>`;
     if (!isAdmin) {
       return `<tr>
         <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
-        <td data-label="Qté Disponible">${p.qty}</td>
+        <td data-label="Stock Initial">${initial}</td>
+        <td data-label="Stock Restant">${progressBar}</td>
         <td data-label="Statut">${statut}</td>
       </tr>`;
     }
     const marge = p.pa > 0 ? (((p.pv - p.pa) / p.pa) * 100).toFixed(1) : 0;
     return `<tr>
       <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
-      <td data-label="Qté">${p.qty}</td>
+      <td data-label="Stock Initial">${initial}</td>
+      <td data-label="Stock Restant">${progressBar}</td>
       <td data-label="Prix Achat">${fmt(p.pa)}</td>
       <td data-label="Prix Vente">${fmt(p.pv)}</td>
       <td data-label="Marge" class="${marge >= 0 ? 'gain-pos' : 'gain-neg'}">${marge}%</td>
@@ -870,10 +883,13 @@ function saveStock() {
   if (existing) { toast('Un produit avec ce nom existe déjà.', 'error'); return; }
 
   if (editStockId) {
-    DB.update('stock', editStockId, { nom, qty, pa, pv });
+    const existing = DB.findById('stock', editStockId);
+    // Si la qté augmente (réapprovisionnement), mettre à jour le stock initial aussi
+    const qtyInitial = qty > (existing?.qty ?? 0) ? qty : (existing?.qtyInitial ?? existing?.qty ?? qty);
+    DB.update('stock', editStockId, { nom, qty, pa, pv, qtyInitial });
     toast('Produit modifié avec succès.');
   } else {
-    DB.insert('stock', { nom, qty, pa, pv });
+    DB.insert('stock', { nom, qty, pa, pv, qtyInitial: qty });
     toast('Produit ajouté avec succès.');
   }
   hideModal('modalStock');

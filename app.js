@@ -596,10 +596,10 @@ function renderVentes() {
       <td data-label="Prix Vente">${fmt(v.pv)}</td>
       <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
       <td data-label="Vendeur">${escHtml(v.vendeur || '—')}</td>
-      <td data-label="Actions">
-        <button class="btn-icon" onclick="openRecuVente(${v.id})">🖨️</button>
-        <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️ Modifier</button>
-        <button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>
+      <td data-label="Actions" style="white-space:nowrap">
+        <button class="btn-icon" onclick="openRecuVente(${v.id})" title="Imprimer reçu">🖨️</button>
+        <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')" title="Supprimer cette vente" style="background:#ef4444;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.85rem;">🗑️ Supprimer</button>
       </td>
     </tr>`;
   }).join('');

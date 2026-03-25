@@ -22,12 +22,27 @@ const AUTH = {
   isAdmin()     { return this.currentUser()?.role === 'admin'; },
   displayName() { return this.currentUser()?.display || ''; },
 
-  login(username, password) {
+  async login(username, password) {
     const u = this.USERS.find(x => x.username === username && x.password === password);
-    if (u) { sessionStorage.setItem(this.KEY, JSON.stringify(u)); return true; }
-    return false;
+    if (!u) return false;
+    sessionStorage.setItem(this.KEY, JSON.stringify(u));
+    // Obtenir le token sécurisé depuis le serveur
+    try {
+      const r = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await r.json();
+      if (data.token) sessionStorage.setItem('venips_token', data.token);
+    } catch {}
+    return true;
   },
-  logout() { sessionStorage.removeItem(this.KEY); }
+  logout() {
+    sessionStorage.removeItem(this.KEY);
+    sessionStorage.removeItem('venips_token');
+  },
+  getToken() { return sessionStorage.getItem('venips_token') || ''; }
 };
 
 (function initAuth() {
@@ -84,10 +99,10 @@ const AUTH = {
     eyeBtn.textContent = isPass ? '🙈' : '👁️';
   });
 
-  function tryLogin() {
+  async function tryLogin() {
     const user = userEl.value.trim();
     const pass = passEl.value;
-    if (AUTH.login(user, pass)) {
+    if (await AUTH.login(user, pass)) {
       errEl.classList.remove('show');
       showApp();
     } else {
@@ -118,13 +133,20 @@ const DB = {
   _BASE: '/api',
   _serverAvailable: false,
 
+  _headers(extra) {
+    return { 'Content-Type': 'application/json', 'x-venips-token': AUTH.getToken(), ...extra };
+  },
+
   // Chargement initial : tente le serveur, sinon localStorage
   async init() {
     const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'];
 
     // Vérifier si le serveur est disponible
     try {
-      const test = await fetch(`${this._BASE}/stock`, { signal: AbortSignal.timeout(3000) });
+      const test = await fetch(`${this._BASE}/stock`, {
+        headers: this._headers(),
+        signal: AbortSignal.timeout(3000)
+      });
       if (test.ok || test.status === 200) {
         this._serverAvailable = true;
       }
@@ -141,7 +163,7 @@ const DB = {
           for (const record of localData) {
             await fetch(`${this._BASE}/${table}`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: this._headers(),
               body: JSON.stringify(record)
             }).catch(() => {});
           }
@@ -150,7 +172,7 @@ const DB = {
       }
       // Charger toutes les tables depuis le serveur
       const results = await Promise.all(
-        tables.map(t => fetch(`${this._BASE}/${t}`).then(r => r.json()).catch(() => []))
+        tables.map(t => fetch(`${this._BASE}/${t}`, { headers: this._headers() }).then(r => r.json()).catch(() => []))
       );
       tables.forEach((t, i) => { this._cache[t] = Array.isArray(results[i]) ? results[i] : []; });
     } else {
@@ -178,7 +200,7 @@ const DB = {
     if (this._serverAvailable) {
       fetch(`${this._BASE}/${table}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this._headers(),
         body: JSON.stringify(record)
       }).catch(() => {});
     } else {
@@ -194,7 +216,7 @@ const DB = {
       if (this._serverAvailable) {
         fetch(`${this._BASE}/${table}/${id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this._headers(),
           body: JSON.stringify(updates)
         }).catch(() => {});
       } else {
@@ -208,7 +230,7 @@ const DB = {
   delete(table, id) {
     this._cache[table] = this._cache[table].filter(r => r.id !== id);
     if (this._serverAvailable) {
-      fetch(`${this._BASE}/${table}/${id}`, { method: 'DELETE' }).catch(() => {});
+      fetch(`${this._BASE}/${table}/${id}`, { method: 'DELETE', headers: this._headers() }).catch(() => {});
     } else {
       this._saveLocal(table);
     }
@@ -1668,7 +1690,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: DB._headers(),
         body: JSON.stringify({ message: text })
       });
       const data = await res.json();

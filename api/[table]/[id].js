@@ -1,9 +1,22 @@
 'use strict';
 
+const crypto = require('crypto');
+
 // PUT    /api/:table/:id  → mettre à jour un enregistrement
 // DELETE /api/:table/:id  → supprimer un enregistrement
 
+const USERS = ['VENIPS', 'JACOB'];
+
+function isValidToken(req) {
+  const token = req.headers['x-venips-token'];
+  if (!token) return false;
+  const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
+  return USERS.some(u => crypto.createHmac('sha256', secret).update(u).digest('hex') === token);
+}
+
 module.exports = async function handler(req, res) {
+  if (!isValidToken(req)) return res.status(401).json({ error: 'Non autorisé' });
+
   const { table, id } = req.query;
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_KEY = process.env.SUPABASE_KEY;

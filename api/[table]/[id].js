@@ -3,7 +3,7 @@
 // PUT    /api/:table/:id  → mettre à jour un enregistrement
 // DELETE /api/:table/:id  → supprimer un enregistrement
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const { table, id } = req.query;
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_KEY = process.env.SUPABASE_KEY;

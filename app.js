@@ -147,6 +147,12 @@ const DB = {
         headers: this._headers(),
         signal: AbortSignal.timeout(3000)
       });
+      if (test.status === 401) {
+        // Token manquant ou expiré → forcer re-connexion
+        AUTH.logout();
+        document.getElementById('loginScreen').classList.remove('hidden');
+        return;
+      }
       if (test.ok || test.status === 200) {
         this._serverAvailable = true;
       }

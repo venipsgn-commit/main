@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/api/auth", "destination": "/api/auth" },
+    { "source": "/api/chat", "destination": "/api/chat" },
     { "source": "/api/:table/:id", "destination": "/api/[table]/[id]" },
     { "source": "/api/:table", "destination": "/api/[table]" }
   ],

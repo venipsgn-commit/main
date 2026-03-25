@@ -911,8 +911,8 @@ function saveStock() {
 
   if (editStockId) {
     const existing = DB.findById('stock', editStockId);
-    // Si la qté augmente (réapprovisionnement), mettre à jour le stock initial aussi
-    const qtyInitial = qty > (existing?.qty ?? 0) ? qty : (existing?.qtyInitial ?? existing?.qty ?? qty);
+    // qtyInitial ne change JAMAIS après la création du produit
+    const qtyInitial = existing?.qtyInitial ?? existing?.qty ?? qty;
     DB.update('stock', editStockId, { nom, qty, pa, pv, qtyInitial });
     toast('Produit modifié avec succès.');
   } else {

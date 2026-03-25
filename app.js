@@ -505,14 +505,19 @@ function renderVentes() {
 
   const tbody = document.getElementById('ventesBody');
   if (ventes.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🛒</div><p>Aucune vente trouvée</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">🛒</div><p>Aucune vente trouvée</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = ventes.map(v => `
-    <tr>
+  tbody.innerHTML = ventes.map(v => {
+    const stockAvant = v.stockAvant != null ? v.stockAvant : '—';
+    const stockApres = v.stockApres != null ? v.stockApres : '—';
+    const stockApresClass = v.stockApres === 0 ? 'style="color:#ef4444;font-weight:700;"' : v.stockApres <= 5 ? 'style="color:#f59e0b;font-weight:700;"' : '';
+    return `<tr>
       <td data-label="Date">${formatDate(v.date)}</td>
       <td data-label="Produit">${escHtml(v.produit)}</td>
       <td data-label="Qté">${v.qty}</td>
+      <td data-label="Stock Avant">${stockAvant}</td>
+      <td data-label="Stock Après" ${stockApresClass}>${stockApres}${v.stockApres === 0 ? ' ⚠️' : ''}</td>
       <td data-label="Prix Achat">${fmt(v.pa)}</td>
       <td data-label="Prix Vente">${fmt(v.pv)}</td>
       <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
@@ -522,7 +527,8 @@ function renderVentes() {
         <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️ Modifier</button>
         ${AUTH.isAdmin() ? `<button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>` : ''}
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function openAddVente() {
@@ -743,6 +749,9 @@ function saveVente() {
   if (qty <= 0) { toast('Quantité invalide.', 'error'); return; }
 
   const stockItem = DB.getAll('stock').find(s => s.nom === produit);
+  const gain = (pv - pa) * qty;
+  let stockAvant = stockItem ? stockItem.qty : null;
+  let stockApres = stockAvant !== null ? stockAvant - qty : null;
 
   if (!editVenteId) {
     // Nouvelle vente : vérifier et déduire du stock
@@ -762,11 +771,11 @@ function saveVente() {
         toast(`Stock insuffisant. Disponible : ${stockItem.qty}`, 'error'); return;
       }
       DB.update('stock', stockItem.id, { qty: newQty });
+      stockApres = newQty;
     }
   }
 
-  const gain = (pv - pa) * qty;
-  const record = { date, produit, qty, pa, pv, gain, vendeur };
+  const record = { date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres };
 
   if (editVenteId) {
     DB.update('ventes', editVenteId, record);
@@ -774,7 +783,8 @@ function saveVente() {
   } else {
     DB.insert('ventes', record);
     const who = AUTH.displayName();
-    toast(`✅ ${who} a ajouté une vente — ${produit}`, 'success');
+    const stockInfo = stockAvant !== null ? ` | Stock : ${stockAvant} → ${stockApres}` : '';
+    toast(`✅ Vente enregistrée — ${produit}${stockInfo}`, 'success');
   }
 
   hideModal('modalVente');

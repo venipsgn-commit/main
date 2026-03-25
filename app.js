@@ -1544,16 +1544,21 @@ function confirmDelete(table, id, label) {
 
 function executeDelete() {
   if (!deleteTarget) return;
-  DB.delete(deleteTarget.table, deleteTarget.id);
+  const { table, id } = deleteTarget;
+  DB.delete(table, id);
   toast('Élément supprimé.', 'warning');
   hideModal('modalConfirm');
   deleteTarget = null;
+  // Si c'est une vente, rafraîchir aussi stock et dashboard (stock restant recalculé)
+  if (table === 'ventes') {
+    renderVentes();
+    renderStock();
+    renderDashboard();
+    return;
+  }
   // Rafraîchir la page active
   const active = document.querySelector('.page.active');
-  if (active) {
-    const page = active.id.replace('page-', '');
-    navigateTo(page);
-  }
+  if (active) navigateTo(active.id.replace('page-', ''));
 }
 
 // ============================================

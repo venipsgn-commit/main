@@ -1,6 +1,5 @@
 /* ============================================
    VENIPS – APPLICATION JAVASCRIPT
-   Base de données : localStorage
    ============================================ */
 
 'use strict';
@@ -9,10 +8,11 @@
 // AUTHENTIFICATION
 // ============================================
 const AUTH = {
-  USERS: [
-    { username: 'VENIPS', password: 'venips224@', role: 'admin',   display: 'VENIPS' },
-    { username: 'JACOB',  password: 'compilateur787', role: 'vendeur', display: 'JACOB'  }
-  ],
+  // Mapping username → rôle (aucun mot de passe côté client)
+  ROLE_MAP: {
+    'VENIPS': { role: 'admin',   display: 'VENIPS' },
+    'JACOB':  { role: 'vendeur', display: 'JACOB'  }
+  },
   KEY: 'venips_session',
 
   currentUser() {
@@ -23,20 +23,22 @@ const AUTH = {
   displayName() { return this.currentUser()?.display || ''; },
 
   async login(username, password) {
-    const u = this.USERS.find(x => x.username === username && x.password === password);
-    if (!u) return false;
-    sessionStorage.setItem(this.KEY, JSON.stringify(u));
-    // Obtenir le token sécurisé depuis le serveur
+    // Validation uniquement côté serveur — aucun mot de passe stocké ici
     try {
       const r = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      const data = await r.json();
-      if (data.token) sessionStorage.setItem('venips_token', data.token);
-    } catch {}
-    return true;
+      if (!r.ok) return false;
+      const { token } = await r.json();
+      const profile = this.ROLE_MAP[username] || { role: 'vendeur', display: username };
+      sessionStorage.setItem(this.KEY, JSON.stringify({ username, ...profile }));
+      sessionStorage.setItem('venips_token', token);
+      return true;
+    } catch {
+      return false;
+    }
   },
   logout() {
     sessionStorage.removeItem(this.KEY);
@@ -68,6 +70,7 @@ const AUTH = {
     const stockSummaryCards = document.querySelectorAll('#page-stock .summary-card');
     if (stockSummaryCards[2]) stockSummaryCards[2].style.display = '';
 
+    const btnBackup = document.getElementById('btnBackup');
     if (user.role === 'vendeur') {
       document.querySelectorAll('.nav-item').forEach(el => {
         const p = el.dataset.page;
@@ -76,8 +79,10 @@ const AUTH = {
       if (ventesSummary) ventesSummary.style.display = 'none';
       document.getElementById('btnAddStock').style.display = 'none';
       if (stockSummaryCards[2]) stockSummaryCards[2].style.display = 'none';
+      if (btnBackup) btnBackup.style.display = 'none';
     } else {
       document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
+      if (btnBackup) btnBackup.style.display = '';
     }
   }
 
@@ -254,8 +259,11 @@ const DB = {
 // ============================================
 // UTILITAIRES
 // ============================================
-const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
+const fmt    = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
 const fmtNum = n => new Intl.NumberFormat('fr-FR').format(n || 0);
+// Arrondi monétaire : évite les erreurs float (ex: 999.9999999 → 1000)
+const round  = n => Math.round((n || 0) * 100) / 100;
+
 const today = () => new Date().toISOString().slice(0, 10);
 const ym = (d) => d ? d.slice(0, 7) : '';
 const currentYM = () => today().slice(0, 7);
@@ -265,6 +273,59 @@ const prevYM = () => {
   return d.toISOString().slice(0, 7);
 };
 const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+// Debounce : évite de surcharger le rendu lors de la saisie dans les filtres
+function debounce(fn, delay = 250) {
+  let timer;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
+}
+
+// ============================================
+// ÉTAT GLOBAL (formulaires en cours d'édition)
+// ============================================
+const EDIT = {
+  venteId:   null,
+  stockId:   null,
+  vendeurId: null,
+  chargeId:  null,
+  detteId:   null,
+};
+
+// ============================================
+// PAGINATION
+// ============================================
+const PAGE_SIZE = 20;
+const PAGE = { ventes: 1, stock: 1, charges: 1, dettes: 1 };
+
+function paginate(items, table) {
+  const total = items.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  PAGE[table] = Math.min(PAGE[table], pages);
+  const start = (PAGE[table] - 1) * PAGE_SIZE;
+  return { items: items.slice(start, start + PAGE_SIZE), total, pages, page: PAGE[table] };
+}
+
+function paginationBar(table, pages, page, total) {
+  if (pages <= 1) return '';
+  const start = (page - 1) * PAGE_SIZE + 1;
+  const end   = Math.min(page * PAGE_SIZE, total);
+  return `<div class="pagination-bar">
+    <span class="pagination-info">${start}–${end} sur ${total}</span>
+    <div class="pagination-btns">
+      <button class="btn btn-sm btn-secondary" onclick="changePage('${table}',-1)" ${page <= 1 ? 'disabled' : ''}>&#8592; Préc</button>
+      <span class="pagination-pages">Page ${page} / ${pages}</span>
+      <button class="btn btn-sm btn-secondary" onclick="changePage('${table}',1)" ${page >= pages ? 'disabled' : ''}>Suiv &#8594;</button>
+    </div>
+  </div>`;
+}
+
+function changePage(table, dir) {
+  PAGE[table] = Math.max(1, PAGE[table] + dir);
+  if (table === 'ventes')  renderVentes();
+  if (table === 'stock')   renderStock();
+  if (table === 'charges') renderCharges();
+  if (table === 'dettes')  renderDettes();
+}
 
 function toast(msg, type = 'success') {
   const tc = document.getElementById('toastContainer');
@@ -480,7 +541,7 @@ function renderChart(canvasId, labels, data, label, color, existing, setter) {
 // ============================================
 // VENTES
 // ============================================
-let editVenteId = null;
+
 
 function renderVentes() {
   let ventes = DB.getAll('ventes');
@@ -495,7 +556,7 @@ function renderVentes() {
 
   ventes.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const totalCA = ventes.reduce((s, v) => s + v.pv * v.qty, 0);
+  const totalCA = ventes.reduce((s, v) => s + round(v.pv * v.qty), 0);
   const totalGain = ventes.reduce((s, v) => s + v.gain, 0);
   const totalQty = ventes.reduce((s, v) => s + v.qty, 0);
 
@@ -504,11 +565,16 @@ function renderVentes() {
   document.getElementById('vente-qty-filtered').textContent = fmtNum(totalQty);
 
   const tbody = document.getElementById('ventesBody');
+  const paginEl = document.getElementById('ventesPageBar');
+
   if (ventes.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">🛒</div><p>Aucune vente trouvée</p></div></td></tr>`;
+    if (paginEl) paginEl.innerHTML = '';
     return;
   }
-  tbody.innerHTML = ventes.map(v => {
+
+  const { items, total, pages, page } = paginate(ventes, 'ventes');
+  tbody.innerHTML = items.map(v => {
     const stockAvant = v.stockAvant != null ? v.stockAvant : '—';
     const stockApres = v.stockApres != null ? v.stockApres : '—';
     const stockApresClass = v.stockApres === 0 ? 'style="color:#ef4444;font-weight:700;"' : v.stockApres <= 5 ? 'style="color:#f59e0b;font-weight:700;"' : '';
@@ -529,10 +595,11 @@ function renderVentes() {
       </td>
     </tr>`;
   }).join('');
+  if (paginEl) paginEl.innerHTML = paginationBar('ventes', pages, page, total);
 }
 
 function openAddVente() {
-  editVenteId = null;
+  EDIT.venteId = null;
   document.getElementById('modalVenteTitle').textContent = 'Nouvelle Vente';
   document.getElementById('vente-date').value = today();
   document.getElementById('vente-qty').value = 1;
@@ -678,7 +745,7 @@ function printRecuVente() {
 function openEditVente(id) {
   const v = DB.findById('ventes', id);
   if (!v) return;
-  editVenteId = id;
+  EDIT.venteId = id;
   document.getElementById('modalVenteTitle').textContent = 'Modifier Vente';
   document.getElementById('vente-date').value = v.date;
   document.getElementById('vente-qty').value = v.qty;
@@ -735,7 +802,7 @@ function calcGain() {
   const qty = parseFloat(document.getElementById('vente-qty').value) || 0;
   const pa = parseFloat(document.getElementById('vente-pa').value) || 0;
   const pv = parseFloat(document.getElementById('vente-pv').value) || 0;
-  document.getElementById('vente-gain').value = (pv - pa) * qty;
+  document.getElementById('vente-gain').value = round((pv - pa) * qty);
 }
 
 function saveVente() {
@@ -752,12 +819,12 @@ function saveVente() {
   if (qty <= 0) { toast('Quantité invalide.', 'error'); return; }
 
   const stockItem = DB.getAll('stock').find(s => s.nom === produit);
-  const gain = (pv - pa) * qty;
+  const gain = round((pv - pa) * qty);
 
   // Calculer le stock restant dynamiquement
   const toutesVentes = DB.getAll('ventes');
   const totalDejaVendu = toutesVentes
-    .filter(v => v.produit === produit && v.id !== editVenteId)
+    .filter(v => v.produit === produit && v.id !== EDIT.venteId)
     .reduce((s, v) => s + (v.qty || 0), 0);
   const qtyInitial = stockItem ? (stockItem.qtyInitial ?? stockItem.qty ?? 0) : 0;
   const stockAvant = qtyInitial - totalDejaVendu;
@@ -769,8 +836,8 @@ function saveVente() {
 
   const record = { date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres };
 
-  if (editVenteId) {
-    DB.update('ventes', editVenteId, record);
+  if (EDIT.venteId) {
+    DB.update('ventes', EDIT.venteId, record);
     toast('Vente modifiée avec succès.');
   } else {
     DB.insert('ventes', record);
@@ -788,7 +855,7 @@ function saveVente() {
 // ============================================
 // STOCK
 // ============================================
-let editStockId = null;
+
 
 function renderStock() {
   let stock = DB.getAll('stock');
@@ -803,10 +870,10 @@ function renderStock() {
 
   stock.sort((a, b) => a.nom.localeCompare(b.nom));
 
-  const total = DB.getAll('stock');
-  const dispo = total.filter(p => p.qty > 0).length;
-  const rupture = total.filter(p => p.qty === 0).length;
-  const valeur = total.reduce((s, p) => s + p.pa * p.qty, 0);
+  const allStock = DB.getAll('stock');
+  const dispo = allStock.filter(p => p.qty > 0).length;
+  const rupture = allStock.filter(p => p.qty === 0).length;
+  const valeur = allStock.reduce((s, p) => s + p.pa * p.qty, 0);
 
   document.getElementById('stock-dispo').textContent = fmtNum(dispo);
   document.getElementById('stock-rupture').textContent = fmtNum(rupture);
@@ -824,7 +891,10 @@ function renderStock() {
     return;
   }
   const toutesVentes = DB.getAll('ventes');
-  tbody.innerHTML = stock.map(p => {
+  const paginEl = document.getElementById('stockPageBar');
+  const { items: stockPage, total: stockTotal, pages, page } = paginate(stock, 'stock');
+
+  tbody.innerHTML = stockPage.map(p => {
     const initial = p.qtyInitial ?? p.qty;
     const totalVendu = toutesVentes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
     const restant = Math.max(0, initial - totalVendu);
@@ -863,10 +933,11 @@ function renderStock() {
       </td>
     </tr>`;
   }).join('');
+  if (paginEl) paginEl.innerHTML = paginationBar('stock', pages, page, stockTotal);
 }
 
 function openAddStock() {
-  editStockId = null;
+  EDIT.stockId = null;
   document.getElementById('modalStockTitle').textContent = 'Ajouter Produit';
   document.getElementById('stock-nom').value = '';
   document.getElementById('stock-qty').value = '';
@@ -878,7 +949,7 @@ function openAddStock() {
 function openEditStock(id) {
   const p = DB.findById('stock', id);
   if (!p) return;
-  editStockId = id;
+  EDIT.stockId = id;
   document.getElementById('modalStockTitle').textContent = 'Modifier Produit';
   document.getElementById('stock-nom').value = p.nom;
   document.getElementById('stock-qty').value = p.qtyInitial ?? p.qty;
@@ -900,12 +971,12 @@ function saveStock() {
   if (pa < 0 || pv < 0) { toast('Prix invalide.', 'error'); return; }
 
   // Vérifier doublon nom (hors édition)
-  const existing = DB.getAll('stock').find(p => p.nom.toLowerCase() === nom.toLowerCase() && p.id !== editStockId);
+  const existing = DB.getAll('stock').find(p => p.nom.toLowerCase() === nom.toLowerCase() && p.id !== EDIT.stockId);
   if (existing) { toast('Un produit avec ce nom existe déjà.', 'error'); return; }
 
-  if (editStockId) {
+  if (EDIT.stockId) {
     // qty saisie = nouveau stock initial, le restant se recalcule auto depuis les ventes
-    DB.update('stock', editStockId, { nom, pa, pv, qtyInitial: qty });
+    DB.update('stock', EDIT.stockId, { nom, pa, pv, qtyInitial: qty });
     toast('Produit modifié avec succès.');
   } else {
     DB.insert('stock', { nom, pa, pv, qtyInitial: qty });
@@ -918,7 +989,7 @@ function saveStock() {
 // ============================================
 // VENDEURS
 // ============================================
-let editVendeurId = null;
+
 
 function renderVendeurs() {
   const vendeurs = DB.getAll('vendeurs');
@@ -960,7 +1031,7 @@ function renderVendeurs() {
 }
 
 function openAddVendeur() {
-  editVendeurId = null;
+  EDIT.vendeurId = null;
   document.getElementById('modalVendeurTitle').textContent = 'Ajouter Vendeur';
   document.getElementById('vendeur-nom').value = '';
   showModal('modalVendeur');
@@ -969,7 +1040,7 @@ function openAddVendeur() {
 function openEditVendeur(id) {
   const v = DB.findById('vendeurs', id);
   if (!v) return;
-  editVendeurId = id;
+  EDIT.vendeurId = id;
   document.getElementById('modalVendeurTitle').textContent = 'Modifier Vendeur';
   document.getElementById('vendeur-nom').value = v.nom;
   showModal('modalVendeur');
@@ -979,11 +1050,11 @@ function saveVendeur() {
   const nom = document.getElementById('vendeur-nom').value.trim();
   if (!nom) { toast('Veuillez entrer un nom.', 'error'); return; }
 
-  const existing = DB.getAll('vendeurs').find(v => v.nom.toLowerCase() === nom.toLowerCase() && v.id !== editVendeurId);
+  const existing = DB.getAll('vendeurs').find(v => v.nom.toLowerCase() === nom.toLowerCase() && v.id !== EDIT.vendeurId);
   if (existing) { toast('Ce vendeur existe déjà.', 'error'); return; }
 
-  if (editVendeurId) {
-    DB.update('vendeurs', editVendeurId, { nom });
+  if (EDIT.vendeurId) {
+    DB.update('vendeurs', EDIT.vendeurId, { nom });
     toast('Vendeur modifié.');
   } else {
     DB.insert('vendeurs', { nom });
@@ -996,7 +1067,7 @@ function saveVendeur() {
 // ============================================
 // CHARGES
 // ============================================
-let editChargeId = null;
+
 
 function renderCharges() {
   let charges = DB.getAll('charges');
@@ -1013,12 +1084,15 @@ function renderCharges() {
   charges.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const tbody = document.getElementById('chargesBody');
+  const paginEl = document.getElementById('chargesPageBar');
   if (charges.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">💸</div><p>Aucune charge trouvée</p></div></td></tr>`;
+    if (paginEl) paginEl.innerHTML = '';
     return;
   }
   const typeColors = { Courant: 'info', Location: 'warning', Réparation: 'danger', Salaire: 'success', Autre: '' };
-  tbody.innerHTML = charges.map(c => `
+  const { items: chargesPage, total: tot, pages, page } = paginate(charges, 'charges');
+  tbody.innerHTML = chargesPage.map(c => `
     <tr>
       <td data-label="Date">${formatDate(c.date)}</td>
       <td data-label="Type"><span class="badge badge-${typeColors[c.type] || 'info'}">${escHtml(c.type)}</span></td>
@@ -1029,10 +1103,11 @@ function renderCharges() {
         <button class="btn-icon" onclick="confirmDelete('charges',${c.id},'la charge')">🗑️</button>
       </td>
     </tr>`).join('');
+  if (paginEl) paginEl.innerHTML = paginationBar('charges', pages, page, tot);
 }
 
 function openAddCharge() {
-  editChargeId = null;
+  EDIT.chargeId = null;
   document.getElementById('modalChargeTitle').textContent = 'Ajouter Charge';
   document.getElementById('charge-date').value = today();
   document.getElementById('charge-type').value = '';
@@ -1044,7 +1119,7 @@ function openAddCharge() {
 function openEditCharge(id) {
   const c = DB.findById('charges', id);
   if (!c) return;
-  editChargeId = id;
+  EDIT.chargeId = id;
   document.getElementById('modalChargeTitle').textContent = 'Modifier Charge';
   document.getElementById('charge-date').value = c.date;
   document.getElementById('charge-type').value = c.type;
@@ -1063,8 +1138,8 @@ function saveCharge() {
     toast('Veuillez remplir tous les champs obligatoires.', 'error'); return;
   }
 
-  if (editChargeId) {
-    DB.update('charges', editChargeId, { date, type, montant, desc });
+  if (EDIT.chargeId) {
+    DB.update('charges', EDIT.chargeId, { date, type, montant, desc });
     toast('Charge modifiée.');
   } else {
     DB.insert('charges', { date, type, montant, desc });
@@ -1077,7 +1152,7 @@ function saveCharge() {
 // ============================================
 // DETTES
 // ============================================
-let editDetteId = null;
+
 
 function renderDettes() {
   let dettes = DB.getAll('dettes');
@@ -1097,13 +1172,16 @@ function renderDettes() {
   dettes.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const tbody = document.getElementById('dettesBody');
+  const paginEl = document.getElementById('dettesPageBar');
   if (dettes.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🤝</div><p>Aucune dette trouvée</p></div></td></tr>`;
+    if (paginEl) paginEl.innerHTML = '';
     return;
   }
-  tbody.innerHTML = dettes.map(d => `
+  const { items: dettesPage, total: tot, pages, page } = paginate(dettes, 'dettes');
+  tbody.innerHTML = dettesPage.map(d => `
     <tr>
-      <td data-label="Nom""><strong>${escHtml(d.nom)}</strong></td>
+      <td data-label="Nom"><strong>${escHtml(d.nom)}</strong></td>
       <td data-label="Type"><span class="badge ${d.type === 'Client doit' ? 'badge-success' : 'badge-danger'}">${escHtml(d.type)}</span></td>
       <td data-label="Montant">${fmt(d.montant)}</td>
       <td data-label="Date">${formatDate(d.date)}</td>
@@ -1117,10 +1195,11 @@ function renderDettes() {
         <button class="btn-icon" onclick="confirmDelete('dettes',${d.id},'la dette')">🗑️</button>
       </td>
     </tr>`).join('');
+  if (paginEl) paginEl.innerHTML = paginationBar('dettes', pages, page, tot);
 }
 
 function openAddDette() {
-  editDetteId = null;
+  EDIT.detteId = null;
   document.getElementById('modalDetteTitle').textContent = 'Ajouter Dette';
   document.getElementById('dette-nom').value = '';
   document.getElementById('dette-type').value = '';
@@ -1133,7 +1212,7 @@ function openAddDette() {
 function openEditDette(id) {
   const d = DB.findById('dettes', id);
   if (!d) return;
-  editDetteId = id;
+  EDIT.detteId = id;
   document.getElementById('modalDetteTitle').textContent = 'Modifier Dette';
   document.getElementById('dette-nom').value = d.nom;
   document.getElementById('dette-type').value = d.type;
@@ -1154,8 +1233,8 @@ function saveDette() {
     toast('Veuillez remplir tous les champs obligatoires.', 'error'); return;
   }
 
-  if (editDetteId) {
-    DB.update('dettes', editDetteId, { nom, type, montant, date, statut });
+  if (EDIT.detteId) {
+    DB.update('dettes', EDIT.detteId, { nom, type, montant, date, statut });
     toast('Dette modifiée.');
   } else {
     DB.insert('dettes', { nom, type, montant, date, statut });
@@ -1572,6 +1651,82 @@ function escHtml(str) {
 }
 
 // ============================================
+// EXPORT CSV
+// ============================================
+function exportCSV(table) {
+  const HEADERS = {
+    ventes:   ['Date', 'Produit', 'Qté', 'Prix Achat', 'Prix Vente', 'Gain', 'Vendeur', 'Stock Avant', 'Stock Après'],
+    stock:    ['Produit', 'Stock Initial', 'Prix Achat', 'Prix Vente'],
+    charges:  ['Date', 'Type', 'Montant', 'Description'],
+    dettes:   ['Nom', 'Type', 'Montant', 'Date', 'Statut'],
+    vendeurs: ['Nom'],
+  };
+  const ROWS = {
+    ventes:   d => [d.date, d.produit, d.qty, d.pa, d.pv, d.gain, d.vendeur || '', d.stockAvant ?? '', d.stockApres ?? ''],
+    stock:    d => [d.nom, d.qtyInitial ?? d.qty, d.pa, d.pv],
+    charges:  d => [d.date, d.type || '', d.montant, d.desc || ''],
+    dettes:   d => [d.nom, d.type || '', d.montant, d.date || '', d.statut],
+    vendeurs: d => [d.nom],
+  };
+
+  const data = DB.getAll(table);
+  const headers = HEADERS[table] || Object.keys(data[0] || {});
+  const rowFn = ROWS[table] || (d => Object.values(d));
+
+  const csvContent = [
+    headers.join(';'),
+    ...data.map(d => rowFn(d).map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
+  ].join('\n');
+
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `venips-${table}-${today()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Export ${table} téléchargé.`, 'success');
+}
+
+// ============================================
+// BACKUP BASE DE DONNÉES
+// ============================================
+async function downloadBackup() {
+  if (!DB._serverAvailable) {
+    // Fallback : export JSON depuis le cache
+    const backup = {};
+    ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'].forEach(t => { backup[t] = DB.getAll(t); });
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `venips-backup-${today()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Backup téléchargé (mode local).', 'success');
+    return;
+  }
+  const url = '/api/backup/download';
+  const a   = document.createElement('a');
+  a.href    = url;
+  a.setAttribute('download', `venips-backup-${today()}.json`);
+  // Doit passer le token — on fetch le fichier manuellement
+  try {
+    const r    = await fetch(url, { headers: DB._headers() });
+    if (!r.ok) { toast('Erreur lors du backup.', 'error'); return; }
+    const blob = await r.blob();
+    const oUrl = URL.createObjectURL(blob);
+    a.href     = oUrl;
+    a.download = `venips-backup-${today()}.json`;
+    a.click();
+    URL.revokeObjectURL(oUrl);
+    toast('Backup téléchargé avec succès.', 'success');
+  } catch {
+    toast('Impossible de télécharger le backup.', 'error');
+  }
+}
+
+// ============================================
 // DATE DISPLAY
 // ============================================
 function updateDateDisplay() {
@@ -1673,7 +1828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Filtres Ventes
   document.getElementById('filterVenteMonth').addEventListener('change', renderVentes);
-  document.getElementById('filterVenteSearch').addEventListener('input', renderVentes);
+  document.getElementById('filterVenteSearch').addEventListener('input', debounce(renderVentes));
   document.getElementById('filterVenteReset').addEventListener('click', () => {
     document.getElementById('filterVenteMonth').value = '';
     document.getElementById('filterVenteSearch').value = '';
@@ -1682,7 +1837,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Filtres Stock
   document.getElementById('filterStockStatus').addEventListener('change', renderStock);
-  document.getElementById('filterStockSearch').addEventListener('input', renderStock);
+  document.getElementById('filterStockSearch').addEventListener('input', debounce(renderStock));
   document.getElementById('filterStockReset').addEventListener('click', () => {
     document.getElementById('filterStockStatus').value = '';
     document.getElementById('filterStockSearch').value = '';

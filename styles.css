@@ -1196,6 +1196,22 @@ body.dark .msg-bot { background: #334155; color: #e2e8f0; }
 body.dark .chatbot-input-bar input { background: #1e293b; color: #e2e8f0; }
 
 /* ============================================
+   PAGINATION
+   ============================================ */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pagination-info { color: var(--muted); font-size: .82rem; }
+.pagination-btns { display: flex; align-items: center; gap: 8px; }
+.pagination-pages { font-size: .82rem; color: var(--dark); font-weight: 600; }
+
+/* ============================================
    PRINT
    ============================================ */
 @media print {

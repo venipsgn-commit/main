@@ -1,9 +1,13 @@
 'use strict';
 
-const express  = require('express');
-const Database = require('better-sqlite3');
-const path     = require('path');
-const crypto   = require('crypto');
+require('dotenv').config();
+
+const express      = require('express');
+const Database     = require('better-sqlite3');
+const path         = require('path');
+const crypto       = require('crypto');
+const helmet       = require('helmet');
+const rateLimit    = require('express-rate-limit');
 
 const app = express();
 const db  = new Database(path.join(__dirname, 'venips.db'));
@@ -22,7 +26,43 @@ const TABLE_COLS = {
   dettes:   ['nom', 'type', 'montant', 'date', 'statut', 'createdAt', 'updatedAt'],
 };
 
-// ── Schéma des vraies tables ──────────────────────────────────────────────────
+// Règles de validation par table
+const VALIDATORS = {
+  stock: (b) => {
+    if (!b.nom || typeof b.nom !== 'string' || b.nom.trim().length === 0) return 'Nom requis';
+    if (b.nom.length > 100) return 'Nom trop long (max 100 caractères)';
+    if (b.pa !== undefined && (isNaN(b.pa) || b.pa < 0)) return 'Prix achat invalide';
+    if (b.pv !== undefined && (isNaN(b.pv) || b.pv < 0)) return 'Prix vente invalide';
+    if (b.qtyInitial !== undefined && (isNaN(b.qtyInitial) || b.qtyInitial < 0)) return 'Quantité invalide';
+    return null;
+  },
+  ventes: (b) => {
+    if (!b.date || !/^\d{4}-\d{2}-\d{2}/.test(b.date)) return 'Date invalide';
+    if (!b.produit || typeof b.produit !== 'string' || b.produit.trim().length === 0) return 'Produit requis';
+    if (b.qty !== undefined && (isNaN(b.qty) || b.qty <= 0)) return 'Quantité invalide';
+    if (b.pa !== undefined && (isNaN(b.pa) || b.pa < 0)) return 'Prix achat invalide';
+    if (b.pv !== undefined && (isNaN(b.pv) || b.pv < 0)) return 'Prix vente invalide';
+    return null;
+  },
+  vendeurs: (b) => {
+    if (!b.nom || typeof b.nom !== 'string' || b.nom.trim().length === 0) return 'Nom requis';
+    if (b.nom.length > 100) return 'Nom trop long (max 100 caractères)';
+    return null;
+  },
+  charges: (b) => {
+    if (!b.date || !/^\d{4}-\d{2}-\d{2}/.test(b.date)) return 'Date invalide';
+    if (b.montant !== undefined && (isNaN(b.montant) || b.montant < 0)) return 'Montant invalide';
+    return null;
+  },
+  dettes: (b) => {
+    if (!b.nom || typeof b.nom !== 'string' || b.nom.trim().length === 0) return 'Nom requis';
+    if (b.montant !== undefined && (isNaN(b.montant) || b.montant < 0)) return 'Montant invalide';
+    if (b.statut && !['En cours', 'Payé'].includes(b.statut)) return 'Statut invalide';
+    return null;
+  },
+};
+
+// ── Schéma des tables ─────────────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS stock (
     id         INTEGER PRIMARY KEY,
@@ -95,22 +135,14 @@ db.exec(`
   for (const t of ALLOWED_TABLES) {
     const rows = db.prepare('SELECT id, data FROM records WHERE table_name = ?').all(t);
     if (rows.length === 0) continue;
-
     const cols = TABLE_COLS[t];
     const insert = db.prepare(
       `INSERT OR IGNORE INTO ${t} (id, ${cols.join(', ')})
        VALUES (@id, ${cols.map(c => '@' + c).join(', ')})`
     );
-
-    const migrate = db.transaction(() => {
-      rows.forEach(row => {
-        try {
-          const rec = { ...JSON.parse(row.data), id: row.id };
-          insert.run(rec);
-        } catch (_) {}
-      });
-    });
-    migrate();
+    db.transaction(() => rows.forEach(row => {
+      try { insert.run({ ...JSON.parse(row.data), id: row.id }); } catch (_) {}
+    }))();
     console.log(`  ↳ Migration : ${rows.length} enregistrement(s) → ${t}`);
     total += rows.length;
   }
@@ -118,54 +150,104 @@ db.exec(`
 })();
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-const USERS = [
-  { username: 'VENIPS', password: 'venips224@' },
-  { username: 'JACOB',  password: 'compilateur787' }
-];
+function loadUsers() {
+  const raw = process.env.VENIPS_USERS || 'VENIPS:venips224@,JACOB:compilateur787';
+  return raw.split(',').map(entry => {
+    const [username, ...rest] = entry.trim().split(':');
+    return { username, password: rest.join(':') };
+  }).filter(u => u.username && u.password);
+}
+
+const USERS = loadUsers();
 
 function makeToken(username) {
   const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
   return crypto.createHmac('sha256', secret).update(username).digest('hex');
 }
 
-const VALID_TOKENS = new Set(USERS.map(u => makeToken(u.username)));
+const VALID_TOKENS = new Map(USERS.map(u => [makeToken(u.username), u.username]));
 
 function requireAuth(req, res, next) {
   const token = req.headers['x-venips-token'];
   if (!token || !VALID_TOKENS.has(token)) return res.status(401).json({ error: 'Non autorisé' });
+  req.username = VALID_TOKENS.get(token);
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  // Le premier utilisateur dans VENIPS_USERS est admin
+  if (req.username !== USERS[0].username) return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
   next();
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+// Headers de sécurité
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net'],
+      styleSrc:    ["'self'", "'unsafe-inline'"],
+      imgSrc:      ["'self'", 'data:'],
+      connectSrc:  ["'self'"],
+      fontSrc:     ["'self'"],
+      objectSrc:   ["'none'"],
+      frameSrc:    ["'none'"],
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(express.static(__dirname));
 
+// Rate limiting : authentification (strict)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 10,
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiting : API données (souple)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 200,
+  message: { error: 'Trop de requêtes. Réessayez dans une minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ── POST /api/auth ────────────────────────────────────────────────────────────
-app.post('/api/auth', (req, res) => {
+app.post('/api/auth', authLimiter, (req, res) => {
   const { username, password } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'Champs requis' });
   const user = USERS.find(u => u.username === username && u.password === password);
   if (!user) return res.status(401).json({ error: 'Identifiants incorrects' });
   res.json({ token: makeToken(username) });
 });
 
 // ── GET /api/:table ───────────────────────────────────────────────────────────
-app.get('/api/:table', requireAuth, (req, res) => {
+app.get('/api/:table', apiLimiter, requireAuth, (req, res) => {
   const { table } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
-
   const rows = db.prepare(`SELECT * FROM ${table} ORDER BY id ASC`).all();
   res.json(rows);
 });
 
 // ── POST /api/:table ──────────────────────────────────────────────────────────
-app.post('/api/:table', requireAuth, (req, res) => {
+app.post('/api/:table', apiLimiter, requireAuth, (req, res) => {
   const { table } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
 
   const record = req.body;
+  const err = VALIDATORS[table]?.(record);
+  if (err) return res.status(400).json({ error: err });
+
   const cols   = TABLE_COLS[table];
   const fields = ['id', ...cols.filter(c => record[c] !== undefined)];
-
   try {
     db.prepare(
       `INSERT OR REPLACE INTO ${table} (${fields.join(', ')})
@@ -178,21 +260,19 @@ app.post('/api/:table', requireAuth, (req, res) => {
 });
 
 // ── PUT /api/:table/:id ───────────────────────────────────────────────────────
-app.put('/api/:table/:id', requireAuth, (req, res) => {
+app.put('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
   const { table, id } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
 
   const updates = req.body;
   const cols    = TABLE_COLS[table];
   const setCols = cols.filter(c => updates[c] !== undefined);
-
   if (setCols.length === 0) return res.status(400).json({ error: 'Rien à mettre à jour' });
 
   try {
     db.prepare(
       `UPDATE ${table} SET ${setCols.map(c => `${c} = @${c}`).join(', ')} WHERE id = @_id`
     ).run({ ...updates, _id: Number(id) });
-
     const updated = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(Number(id));
     res.json(updated || {});
   } catch (e) {
@@ -201,12 +281,24 @@ app.put('/api/:table/:id', requireAuth, (req, res) => {
 });
 
 // ── DELETE /api/:table/:id ────────────────────────────────────────────────────
-app.delete('/api/:table/:id', requireAuth, (req, res) => {
+app.delete('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
   const { table, id } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
-
   db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(Number(id));
   res.json({ ok: true });
+});
+
+// ── GET /api/backup/download ──────────────────────────────────────────────────
+app.get('/api/backup/download', apiLimiter, requireAuth, requireAdmin, (req, res) => {
+  const backup = {};
+  for (const t of ALLOWED_TABLES) {
+    backup[t] = db.prepare(`SELECT * FROM ${t} ORDER BY id ASC`).all();
+  }
+  const json     = JSON.stringify(backup, null, 2);
+  const filename = `venips-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.send(json);
 });
 
 // ── Démarrage ─────────────────────────────────────────────────────────────────

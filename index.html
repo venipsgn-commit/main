@@ -87,6 +87,7 @@
     <div class="topbar-title" id="pageTitle">Dashboard</div>
     <div class="topbar-right">
       <span class="date-display" id="dateDisplay"></span>
+      <button class="btn-theme-toggle" id="btnBackup" title="Télécharger backup" onclick="downloadBackup()" style="display:none">💾</button>
       <button class="btn-theme-toggle" id="themeToggle" title="Mode sombre / clair">🌙</button>
       <div class="topbar-user" id="topbarUserBadge">
         <span class="topbar-user-icon">👤</span>
@@ -233,7 +234,10 @@
   <section class="page" id="page-ventes">
     <div class="page-header">
       <h2>Gestion des Ventes</h2>
-      <button class="btn btn-primary" id="btnAddVente">+ Nouvelle Vente</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV('ventes')">⬇ CSV</button>
+        <button class="btn btn-primary" id="btnAddVente">+ Nouvelle Vente</button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -264,6 +268,7 @@
           <tbody id="ventesBody"></tbody>
         </table>
       </div>
+      <div id="ventesPageBar"></div>
     </div>
   </section>
 
@@ -271,7 +276,10 @@
   <section class="page" id="page-stock">
     <div class="page-header">
       <h2>Gestion du Stock</h2>
-      <button class="btn btn-primary" id="btnAddStock">+ Ajouter Produit</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV('stock')">⬇ CSV</button>
+        <button class="btn btn-primary" id="btnAddStock">+ Ajouter Produit</button>
+      </div>
     </div>
 
     <div class="summary-row">
@@ -302,6 +310,7 @@
           <tbody id="stockBody"></tbody>
         </table>
       </div>
+      <div id="stockPageBar"></div>
     </div>
   </section>
 
@@ -331,7 +340,10 @@
   <section class="page" id="page-charges">
     <div class="page-header">
       <h2>Gestion des Charges</h2>
-      <button class="btn btn-primary" id="btnAddCharge">+ Ajouter Charge</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV('charges')">⬇ CSV</button>
+        <button class="btn btn-primary" id="btnAddCharge">+ Ajouter Charge</button>
+      </div>
     </div>
 
     <div class="summary-row">
@@ -361,6 +373,7 @@
           <tbody id="chargesBody"></tbody>
         </table>
       </div>
+      <div id="chargesPageBar"></div>
     </div>
   </section>
 
@@ -368,7 +381,10 @@
   <section class="page" id="page-dettes">
     <div class="page-header">
       <h2>Gestion des Dettes</h2>
-      <button class="btn btn-primary" id="btnAddDette">+ Ajouter Dette</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV('dettes')">⬇ CSV</button>
+        <button class="btn btn-primary" id="btnAddDette">+ Ajouter Dette</button>
+      </div>
     </div>
 
     <div class="summary-row">
@@ -400,6 +416,7 @@
           <tbody id="dettesBody"></tbody>
         </table>
       </div>
+      <div id="dettesPageBar"></div>
     </div>
   </section>
 

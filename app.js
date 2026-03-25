@@ -738,15 +738,26 @@ function saveVente() {
   }
   if (qty <= 0) { toast('Quantité invalide.', 'error'); return; }
 
-  // Vérif stock (seulement pour nouvelle vente)
+  const stockItem = DB.getAll('stock').find(s => s.nom === produit);
+
   if (!editVenteId) {
-    const stockItem = DB.getAll('stock').find(s => s.nom === produit);
+    // Nouvelle vente : vérifier et déduire du stock
     if (stockItem && stockItem.qty < qty) {
       toast(`Stock insuffisant. Disponible : ${stockItem.qty}`, 'error'); return;
     }
-    // Déduire du stock
     if (stockItem) {
       DB.update('stock', stockItem.id, { qty: stockItem.qty - qty });
+    }
+  } else {
+    // Modification de vente : recalculer la différence de stock
+    const oldVente = DB.findById('ventes', editVenteId);
+    if (stockItem && oldVente && oldVente.produit === produit) {
+      const diff = qty - (oldVente.qty || 0);
+      const newQty = stockItem.qty - diff;
+      if (newQty < 0) {
+        toast(`Stock insuffisant. Disponible : ${stockItem.qty}`, 'error'); return;
+      }
+      DB.update('stock', stockItem.id, { qty: newQty });
     }
   }
 
@@ -764,6 +775,8 @@ function saveVente() {
 
   hideModal('modalVente');
   renderVentes();
+  renderStock();
+  renderDashboard();
 }
 
 // ============================================

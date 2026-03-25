@@ -257,6 +257,7 @@ body {
   transition: var(--transition);
   margin-top: 4px;
   letter-spacing: .5px;
+  width: 100%;
 }
 .login-btn:hover {
   background: linear-gradient(135deg, var(--primary-dark), var(--primary));

@@ -146,6 +146,18 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_defectueux_produit ON defectueux(produit);
   CREATE INDEX IF NOT EXISTS idx_defectueux_statut  ON defectueux(statut);
+
+  CREATE TABLE IF NOT EXISTS logs (
+    id        INTEGER PRIMARY KEY,
+    timestamp TEXT NOT NULL,
+    username  TEXT NOT NULL,
+    action    TEXT NOT NULL,
+    tableName TEXT NOT NULL,
+    recordId  INTEGER,
+    details   TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
+  CREATE INDEX IF NOT EXISTS idx_logs_username  ON logs(username);
 `);
 
 // ── Migration colonnes ajoutées ───────────────────────────────────────────────
@@ -269,6 +281,16 @@ app.get('/api/:table', apiLimiter, requireAuth, (req, res) => {
   res.json(rows);
 });
 
+// ── Helper log ────────────────────────────────────────────────────────────────
+function addLog(username, action, tableName, recordId, details) {
+  try {
+    db.prepare(
+      `INSERT INTO logs (timestamp, username, action, tableName, recordId, details)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(new Date().toISOString(), username, action, tableName, recordId || null, details || null);
+  } catch {}
+}
+
 // ── POST /api/:table ──────────────────────────────────────────────────────────
 app.post('/api/:table', apiLimiter, requireAuth, (req, res) => {
   const { table } = req.params;
@@ -285,6 +307,7 @@ app.post('/api/:table', apiLimiter, requireAuth, (req, res) => {
       `INSERT OR REPLACE INTO ${table} (${fields.join(', ')})
        VALUES (${fields.map(f => '@' + f).join(', ')})`
     ).run(record);
+    addLog(req.username, 'AJOUT', table, record.id, JSON.stringify(record).slice(0, 200));
     res.status(201).json(record);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -306,6 +329,7 @@ app.put('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
       `UPDATE ${table} SET ${setCols.map(c => `${c} = @${c}`).join(', ')} WHERE id = @_id`
     ).run({ ...updates, _id: Number(id) });
     const updated = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(Number(id));
+    addLog(req.username, 'MODIFICATION', table, Number(id), JSON.stringify(updates).slice(0, 200));
     res.json(updated || {});
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -316,8 +340,16 @@ app.put('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
 app.delete('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
   const { table, id } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
+  const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(Number(id));
   db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(Number(id));
+  addLog(req.username, 'SUPPRESSION', table, Number(id), row ? JSON.stringify(row).slice(0, 200) : null);
   res.json({ ok: true });
+});
+
+// ── GET /api/logs ─────────────────────────────────────────────────────────────
+app.get('/api/logs', apiLimiter, requireAuth, requireAdmin, (req, res) => {
+  const rows = db.prepare('SELECT * FROM logs ORDER BY id DESC LIMIT 500').all();
+  res.json(rows);
 });
 
 // ── GET /api/backup/download ──────────────────────────────────────────────────

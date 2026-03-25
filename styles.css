@@ -1210,6 +1210,66 @@ body.dark .msg-bot { background: #334155; color: #e2e8f0; }
 body.dark .chatbot-input-bar input { background: #1e293b; color: #e2e8f0; }
 
 /* ============================================
+   RECHERCHE GLOBALE
+   ============================================ */
+.global-search-wrap {
+  position: relative;
+}
+.global-search-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: .85rem;
+  width: 200px;
+  color: var(--dark);
+  transition: var(--transition);
+}
+.global-search-input:focus { outline: none; border-color: var(--primary); width: 260px; }
+.global-search-results {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 999;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.global-search-results.open { display: block; }
+.search-result-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item:hover { background: var(--bg); }
+.search-result-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+.search-result-label { font-weight: 600; font-size: .88rem; color: var(--dark); }
+.search-result-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.search-no-result { padding: 14px; text-align: center; color: var(--muted); font-size: .85rem; }
+
+/* Dark mode */
+body.dark .global-search-input { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+body.dark .global-search-results { background: #1e293b; border-color: #334155; }
+body.dark .search-result-item:hover { background: #243045; }
+body.dark .search-result-label { color: #e2e8f0; }
+
+@media (max-width: 600px) {
+  .global-search-input { width: 120px; }
+  .global-search-input:focus { width: 160px; }
+  .global-search-results { width: 280px; right: -60px; }
+}
+
+/* ============================================
    CHARGES — DEUX COLONNES + BUDGET BAR
    ============================================ */
 .charges-cols {

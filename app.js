@@ -350,14 +350,15 @@ function hideModal(id) {
 // NAVIGATION
 // ============================================
 const pageTitles = {
-  dashboard:  'Dashboard',
-  ventes:     'Gestion des Ventes',
-  stock:      'Gestion du Stock',
-  vendeurs:   'Gestion des Vendeurs',
-  charges:    'Gestion des Charges',
-  dettes:     'Gestion des Dettes',
-  defectueux: 'Produits Défectueux',
-  recus:      'Reçus de Vente'
+  dashboard:   'Dashboard',
+  ventes:      'Gestion des Ventes',
+  stock:       'Gestion du Stock',
+  vendeurs:    'Gestion des Vendeurs',
+  charges:     'Gestion des Charges',
+  dettes:      'Gestion des Dettes',
+  defectueux:  'Produits Défectueux',
+  recus:       'Reçus de Vente',
+  historique:  'Historique des Modifications'
 };
 
 function navigateTo(page) {
@@ -380,6 +381,7 @@ function navigateTo(page) {
   if (page === 'dettes')      renderDettes();
   if (page === 'defectueux')  renderDefectueux();
   if (page === 'recus')       renderRecus();
+  if (page === 'historique')  renderHistorique();
 }
 
 // ============================================
@@ -387,6 +389,7 @@ function navigateTo(page) {
 // ============================================
 let chartVentes = null;
 let chartGains = null;
+let chartChargesVsGains = null;
 
 function renderDashboard() {
   if (typeof Chart === 'undefined') {
@@ -410,6 +413,8 @@ function renderDashboard() {
   const totalStockItems = stock.reduce((s, p) => s + p.qty, 0);
   const ruptures        = stock.filter(p => p.qty === 0).length;
   const totalDefectueux = defectueux.filter(d => d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
+  const today30 = new Date(); today30.setDate(today30.getDate() - 30);
+  const dettesRetard = dettes.filter(d => d.statut === 'Non payé' && new Date(d.date) < today30).length;
 
   document.getElementById('kpi-ca').textContent = fmt(totalCA);
   document.getElementById('kpi-gain').textContent = fmt(totalGain);
@@ -419,6 +424,12 @@ function renderDashboard() {
   document.getElementById('kpi-rupture').textContent = fmtNum(ruptures);
   const kpiDef = document.getElementById('kpi-defectueux');
   if (kpiDef) kpiDef.textContent = fmtNum(totalDefectueux);
+  const kpiRetard = document.getElementById('kpi-dettes-retard');
+  if (kpiRetard) {
+    kpiRetard.textContent = fmtNum(dettesRetard);
+    kpiRetard.closest('.kpi-card').classList.toggle('red', dettesRetard > 0);
+    kpiRetard.closest('.kpi-card').classList.toggle('orange', dettesRetard === 0);
+  }
 
 
   // Comparaison mensuelle
@@ -457,6 +468,24 @@ function renderDashboard() {
 
   renderChart('chartVentes', labels, salesByMonth, 'Ventes (GNF)', '#4f46e5', chartVentes, c => chartVentes = c);
   renderChart('chartGains', labels, gainsByMonth, 'Gains (GNF)', '#10b981', chartGains, c => chartGains = c);
+
+  // Graphique Charges vs Gains
+  const chargesByMonth = months.map(m => charges.filter(c => ym(c.date) === m).reduce((s, c) => s + c.montant, 0));
+  if (chartChargesVsGains) chartChargesVsGains.destroy();
+  const ctxCvG = document.getElementById('chartChargesVsGains');
+  if (ctxCvG) {
+    chartChargesVsGains = new Chart(ctxCvG, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Gains (GNF)', data: gainsByMonth, backgroundColor: '#10b98133', borderColor: '#10b981', borderWidth: 2, borderRadius: 6 },
+          { label: 'Charges (GNF)', data: chargesByMonth, backgroundColor: '#ef444433', borderColor: '#ef4444', borderWidth: 2, borderRadius: 6 }
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
 
   // Dernières ventes
   const recent = [...ventes].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
@@ -598,8 +627,10 @@ function renderVentes() {
       <td data-label="Vendeur">${escHtml(v.vendeur || '—')}</td>
       <td data-label="Actions" style="white-space:nowrap">
         <button class="btn-icon" onclick="openRecuVente(${v.id})" title="Imprimer reçu">🖨️</button>
+        ${AUTH.isAdmin() || v.vendeur === AUTH.displayName() ? `
         <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️</button>
-        <button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')" title="Supprimer cette vente" style="background:#ef4444;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.85rem;">🗑️ Supprimer</button>
+        <button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')" style="background:#ef4444;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.85rem;">🗑️ Supprimer</button>
+        ` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -1235,10 +1266,13 @@ function renderDettes() {
     if (paginEl) paginEl.innerHTML = '';
     return;
   }
+  const limit30 = new Date(); limit30.setDate(limit30.getDate() - 30);
   const { items: dettesPage, total: tot, pages, page } = paginate(dettes, 'dettes');
-  tbody.innerHTML = dettesPage.map(d => `
-    <tr>
-      <td data-label="Nom"><strong>${escHtml(d.nom)}</strong></td>
+  tbody.innerHTML = dettesPage.map(d => {
+    const enRetard = d.statut === 'Non payé' && new Date(d.date) < limit30;
+    return `
+    <tr${enRetard ? ' style="background:rgba(239,68,68,.06)"' : ''}>
+      <td data-label="Nom"><strong>${escHtml(d.nom)}</strong>${enRetard ? ' <span class="badge badge-danger">⏰ Retard</span>' : ''}</td>
       <td data-label="Type"><span class="badge ${d.type === 'Client doit' ? 'badge-success' : 'badge-danger'}">${escHtml(d.type)}</span></td>
       <td data-label="Montant">${fmt(d.montant)}</td>
       <td data-label="Date">${formatDate(d.date)}</td>
@@ -1251,7 +1285,8 @@ function renderDettes() {
         <button class="btn-icon" onclick="openEditDette(${d.id})">✏️</button>
         <button class="btn-icon" onclick="confirmDelete('dettes',${d.id},'la dette')">🗑️</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   if (paginEl) paginEl.innerHTML = paginationBar('dettes', pages, page, tot);
 }
 
@@ -2070,6 +2105,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
 
+  // Historique filters
+  const filterLogAction = document.getElementById('filterLogAction');
+  const filterLogTable  = document.getElementById('filterLogTable');
+  const filterLogReset  = document.getElementById('filterLogReset');
+  if (filterLogAction) filterLogAction.addEventListener('change', renderHistorique);
+  if (filterLogTable)  filterLogTable.addEventListener('change', renderHistorique);
+  if (filterLogReset)  filterLogReset.addEventListener('click', () => {
+    filterLogAction.value = '';
+    filterLogTable.value  = '';
+    renderHistorique();
+  });
+
+  // Recherche globale
+  const gSearch = document.getElementById('globalSearch');
+  if (gSearch) {
+    gSearch.addEventListener('input', debounce(() => globalSearch(gSearch.value)));
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.global-search-wrap')) {
+        document.getElementById('globalSearchResults')?.classList.remove('open');
+      }
+    });
+  }
+
+  // Masquer nav items admin-only pour les vendeurs
+  if (!AUTH.isAdmin()) {
+    document.querySelectorAll('.nav-admin-only').forEach(el => el.style.display = 'none');
+  }
+
   // Navigation initiale + enregistrement vendeur (DB disponible ici)
   if (AUTH.isLoggedIn()) {
     const user = AUTH.currentUser();
@@ -2084,6 +2147,96 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 });
+
+// ============================================
+// HISTORIQUE
+// ============================================
+const PAGE_LOGS = { logs: 1 };
+
+async function renderHistorique() {
+  if (!AUTH.isAdmin()) return;
+  const tbody   = document.getElementById('logsBody');
+  const paginEl = document.getElementById('logsPageBar');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Chargement…</td></tr>`;
+  try {
+    const res  = await fetch('/api/logs', { headers: { 'x-venips-token': AUTH.getToken() } });
+    let logs   = await res.json();
+    const actionFilter = document.getElementById('filterLogAction')?.value || '';
+    const tableFilter  = document.getElementById('filterLogTable')?.value  || '';
+    if (actionFilter) logs = logs.filter(l => l.action === actionFilter);
+    if (tableFilter)  logs = logs.filter(l => l.tableName === tableFilter);
+
+    const actionColors = { AJOUT: 'badge-success', MODIFICATION: 'badge-warning', SUPPRESSION: 'badge-danger' };
+    const tableNames   = { ventes: 'Ventes', stock: 'Stock', charges: 'Charges', dettes: 'Dettes', defectueux: 'Défectueux', vendeurs: 'Vendeurs' };
+
+    if (logs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune entrée dans l'historique</p></div></td></tr>`;
+      if (paginEl) paginEl.innerHTML = '';
+      return;
+    }
+    tbody.innerHTML = logs.slice(0, 200).map(l => {
+      const dt = new Date(l.timestamp);
+      const dtStr = dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      return `<tr>
+        <td data-label="Date/Heure" style="white-space:nowrap">${dtStr}</td>
+        <td data-label="Utilisateur"><strong>${escHtml(l.username)}</strong></td>
+        <td data-label="Action"><span class="badge ${actionColors[l.action] || ''}">${escHtml(l.action)}</span></td>
+        <td data-label="Table">${tableNames[l.tableName] || escHtml(l.tableName)}</td>
+        <td data-label="ID">${l.recordId || '—'}</td>
+        <td data-label="Détails" style="font-size:.75rem;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(l.details || '')}">${escHtml(l.details || '—')}</td>
+      </tr>`;
+    }).join('');
+    if (paginEl) paginEl.innerHTML = '';
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger);text-align:center">Erreur chargement historique</td></tr>`;
+  }
+}
+
+// ============================================
+// RECHERCHE GLOBALE
+// ============================================
+function globalSearch(query) {
+  const q = query.trim().toLowerCase();
+  const container = document.getElementById('globalSearchResults');
+  if (!container) return;
+  if (q.length < 2) { container.classList.remove('open'); return; }
+
+  const results = [];
+  const add = (label, icon, page, sub) => results.push({ label, icon, page, sub });
+
+  DB.getAll('stock').filter(p => p.nom.toLowerCase().includes(q))
+    .forEach(p => add(p.nom, '📦', 'stock', `Prix vente: ${fmt(p.pv)}`));
+  DB.getAll('ventes').filter(v => v.produit.toLowerCase().includes(q) || (v.vendeur||'').toLowerCase().includes(q))
+    .slice(0, 5).forEach(v => add(v.produit, '🛒', 'ventes', `${formatDate(v.date)} – ${fmt(v.pv * v.qty)}`));
+  DB.getAll('dettes').filter(d => d.nom.toLowerCase().includes(q))
+    .forEach(d => add(d.nom, '🤝', 'dettes', `${fmt(d.montant)} – ${d.statut}`));
+  DB.getAll('charges').filter(c => (c.desc||'').toLowerCase().includes(q) || (c.type||'').toLowerCase().includes(q))
+    .slice(0, 5).forEach(c => add(c.type || c.desc, '💸', 'charges', `${formatDate(c.date)} – ${fmt(c.montant)}`));
+  DB.getAll('defectueux').filter(d => d.produit.toLowerCase().includes(q) || (d.probleme||'').toLowerCase().includes(q))
+    .forEach(d => add(d.produit, '⚠️', 'defectueux', d.probleme));
+
+  if (results.length === 0) {
+    container.innerHTML = `<div class="search-no-result">Aucun résultat pour "${escHtml(q)}"</div>`;
+  } else {
+    container.innerHTML = results.slice(0, 10).map((r, i) => `
+      <div class="search-result-item" data-page="${r.page}" data-idx="${i}">
+        <span class="search-result-icon">${r.icon}</span>
+        <div class="search-result-text">
+          <div class="search-result-label">${escHtml(r.label)}</div>
+          <div class="search-result-sub">${escHtml(r.sub)}</div>
+        </div>
+      </div>`).join('');
+    container.querySelectorAll('.search-result-item').forEach(el => {
+      el.addEventListener('click', () => {
+        navigateTo(el.dataset.page);
+        container.classList.remove('open');
+        document.getElementById('globalSearch').value = '';
+      });
+    });
+  }
+  container.classList.add('open');
+}
 
 // ============================================
 // CHATBOT IA

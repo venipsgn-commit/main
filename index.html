@@ -44,6 +44,9 @@
     <li class="nav-item" data-page="chatbot">
       <span class="nav-icon">🤖</span><span class="nav-label">Assistant IA</span>
     </li>
+    <li class="nav-item nav-admin-only" data-page="historique">
+      <span class="nav-icon">📋</span><span class="nav-label">Historique</span>
+    </li>
   </ul>
   <div class="sidebar-footer">
     <button class="btn-logout" id="btnLogout" title="Se déconnecter">
@@ -89,6 +92,10 @@
     <button class="menu-toggle" id="menuToggle">☰</button>
     <div class="topbar-title" id="pageTitle">Dashboard</div>
     <div class="topbar-right">
+      <div class="global-search-wrap">
+        <input type="text" id="globalSearch" class="global-search-input" placeholder="🔍 Rechercher..." autocomplete="off" />
+        <div class="global-search-results" id="globalSearchResults"></div>
+      </div>
       <span class="date-display" id="dateDisplay"></span>
       <button class="btn-theme-toggle" id="btnBackup" title="Télécharger backup" onclick="downloadBackup()" style="display:none">💾</button>
       <button class="btn-theme-toggle" id="themeToggle" title="Mode sombre / clair">🌙</button>
@@ -160,6 +167,13 @@
           <div class="kpi-value" id="kpi-defectueux">0</div>
         </div>
       </div>
+      <div class="kpi-card orange">
+        <div class="kpi-icon">⏰</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Dettes en Retard</div>
+          <div class="kpi-value" id="kpi-dettes-retard">0</div>
+        </div>
+      </div>
     </div>
 
     <!-- Monthly Comparison -->
@@ -214,6 +228,10 @@
       <div class="card chart-card">
         <div class="card-header"><h3>Gains par Mois</h3></div>
         <canvas id="chartGains" height="250"></canvas>
+      </div>
+      <div class="card chart-card">
+        <div class="card-header"><h3>Charges vs Gains par Mois</h3></div>
+        <canvas id="chartChargesVsGains" height="250"></canvas>
       </div>
     </div>
 
@@ -589,6 +607,42 @@
     <div class="chatbot-input-bar">
       <input type="text" id="chatInput" placeholder="Ex: Quel est mon chiffre d'affaires ce mois ?" />
       <button class="btn btn-primary" id="chatSendBtn">Envoyer</button>
+    </div>
+  </section>
+
+  <!-- PAGE: HISTORIQUE (admin) -->
+  <section class="page" id="page-historique">
+    <div class="page-header">
+      <h2>Historique des Modifications</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="filterLogAction" class="filter-input">
+          <option value="">Toutes les actions</option>
+          <option value="AJOUT">Ajout</option>
+          <option value="MODIFICATION">Modification</option>
+          <option value="SUPPRESSION">Suppression</option>
+        </select>
+        <select id="filterLogTable" class="filter-input">
+          <option value="">Toutes les tables</option>
+          <option value="ventes">Ventes</option>
+          <option value="stock">Stock</option>
+          <option value="charges">Charges</option>
+          <option value="dettes">Dettes</option>
+          <option value="defectueux">Défectueux</option>
+          <option value="vendeurs">Vendeurs</option>
+        </select>
+        <button class="btn btn-secondary" id="filterLogReset">Réinitialiser</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Date/Heure</th><th>Utilisateur</th><th>Action</th><th>Table</th><th>ID</th><th>Détails</th></tr>
+          </thead>
+          <tbody id="logsBody"></tbody>
+        </table>
+      </div>
+      <div id="logsPageBar"></div>
     </div>
   </section>
 

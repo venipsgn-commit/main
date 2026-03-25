@@ -599,7 +599,7 @@ function renderVentes() {
       <td data-label="Actions">
         <button class="btn-icon" onclick="openRecuVente(${v.id})">🖨️</button>
         <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️ Modifier</button>
-        ${AUTH.isAdmin() ? `<button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>` : ''}
+        <button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')">🗑️</button>
       </td>
     </tr>`;
   }).join('');

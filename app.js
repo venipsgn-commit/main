@@ -1679,50 +1679,47 @@ function exportCSV(table) {
   ].join('\n');
 
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `venips-${table}-${today()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  triggerDownload(blob, `venips-${table}-${today()}.csv`);
   toast(`Export ${table} téléchargé.`, 'success');
 }
 
 // ============================================
 // BACKUP BASE DE DONNÉES
 // ============================================
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+
 async function downloadBackup() {
+  const filename = `venips-backup-${today()}.json`;
+
   if (!DB._serverAvailable) {
-    // Fallback : export JSON depuis le cache
     const backup = {};
     ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'].forEach(t => { backup[t] = DB.getAll(t); });
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `venips-backup-${today()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerDownload(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }), filename);
     toast('Backup téléchargé (mode local).', 'success');
     return;
   }
-  const url = '/api/backup/download';
-  const a   = document.createElement('a');
-  a.href    = url;
-  a.setAttribute('download', `venips-backup-${today()}.json`);
-  // Doit passer le token — on fetch le fichier manuellement
+
   try {
-    const r    = await fetch(url, { headers: DB._headers() });
-    if (!r.ok) { toast('Erreur lors du backup.', 'error'); return; }
+    const r = await fetch('/api/backup/download', { headers: DB._headers() });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      toast(`Erreur backup : ${err.error || r.status}`, 'error');
+      return;
+    }
     const blob = await r.blob();
-    const oUrl = URL.createObjectURL(blob);
-    a.href     = oUrl;
-    a.download = `venips-backup-${today()}.json`;
-    a.click();
-    URL.revokeObjectURL(oUrl);
+    triggerDownload(blob, filename);
     toast('Backup téléchargé avec succès.', 'success');
-  } catch {
-    toast('Impossible de télécharger le backup.', 'error');
+  } catch (e) {
+    toast(`Impossible de télécharger le backup : ${e.message}`, 'error');
   }
 }
 

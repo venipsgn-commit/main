@@ -16,14 +16,15 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 // ── Whitelist et colonnes par table ───────────────────────────────────────────
-const ALLOWED_TABLES = new Set(['stock', 'ventes', 'vendeurs', 'charges', 'dettes']);
+const ALLOWED_TABLES = new Set(['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux']);
 
 const TABLE_COLS = {
-  stock:    ['nom', 'pa', 'pv', 'qtyInitial', 'createdAt', 'updatedAt'],
-  ventes:   ['date', 'produit', 'qty', 'pa', 'pv', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'createdAt', 'updatedAt'],
-  vendeurs: ['nom', 'createdAt', 'updatedAt'],
-  charges:  ['date', 'type', 'montant', 'desc', 'createdAt', 'updatedAt'],
-  dettes:   ['nom', 'type', 'montant', 'date', 'statut', 'createdAt', 'updatedAt'],
+  stock:       ['nom', 'pa', 'pv', 'qtyInitial', 'createdAt', 'updatedAt'],
+  ventes:      ['date', 'produit', 'qty', 'pa', 'pv', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'createdAt', 'updatedAt'],
+  vendeurs:    ['nom', 'createdAt', 'updatedAt'],
+  charges:     ['date', 'type', 'montant', 'desc', 'createdAt', 'updatedAt'],
+  dettes:      ['nom', 'type', 'montant', 'date', 'statut', 'createdAt', 'updatedAt'],
+  defectueux:  ['date', 'produit', 'qty', 'probleme', 'solution', 'statut', 'createdAt', 'updatedAt'],
 };
 
 // Règles de validation par table
@@ -58,6 +59,14 @@ const VALIDATORS = {
     if (!b.nom || typeof b.nom !== 'string' || b.nom.trim().length === 0) return 'Nom requis';
     if (b.montant !== undefined && (isNaN(b.montant) || b.montant < 0)) return 'Montant invalide';
     if (b.statut && !['En cours', 'Payé'].includes(b.statut)) return 'Statut invalide';
+    return null;
+  },
+  defectueux: (b) => {
+    if (!b.date || !/^\d{4}-\d{2}-\d{2}/.test(b.date)) return 'Date invalide';
+    if (!b.produit || typeof b.produit !== 'string' || b.produit.trim().length === 0) return 'Produit requis';
+    if (b.qty !== undefined && (isNaN(b.qty) || b.qty <= 0)) return 'Quantité invalide';
+    if (!b.probleme || typeof b.probleme !== 'string' || b.probleme.trim().length === 0) return 'Description du problème requise';
+    if (b.statut && !['En attente', 'Résolu', 'Irréparable'].includes(b.statut)) return 'Statut invalide';
     return null;
   },
 };
@@ -122,6 +131,20 @@ db.exec(`
     updatedAt TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_dettes_statut ON dettes(statut);
+
+  CREATE TABLE IF NOT EXISTS defectueux (
+    id        INTEGER PRIMARY KEY,
+    date      TEXT    NOT NULL,
+    produit   TEXT    NOT NULL,
+    qty       INTEGER NOT NULL DEFAULT 1,
+    probleme  TEXT    NOT NULL,
+    solution  TEXT,
+    statut    TEXT    NOT NULL DEFAULT 'En attente',
+    createdAt TEXT,
+    updatedAt TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_defectueux_produit ON defectueux(produit);
+  CREATE INDEX IF NOT EXISTS idx_defectueux_statut  ON defectueux(statut);
 `);
 
 // ── Migration unique : records → vraies tables ────────────────────────────────

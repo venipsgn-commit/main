@@ -136,7 +136,7 @@ const AUTH = {
 // BASE DE DONNÉES (SQLite via serveur Node.js, fallback localStorage)
 // ============================================
 const DB = {
-  _cache: { stock: [], ventes: [], vendeurs: [], charges: [], dettes: [] },
+  _cache: { stock: [], ventes: [], vendeurs: [], charges: [], dettes: [], defectueux: [] },
   _BASE: '/api',
   _serverAvailable: false,
 
@@ -146,7 +146,7 @@ const DB = {
 
   // Chargement initial : tente le serveur, sinon localStorage
   async init() {
-    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'];
+    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'];
 
     // Vérifier si le serveur est disponible
     try {
@@ -284,18 +284,19 @@ function debounce(fn, delay = 250) {
 // ÉTAT GLOBAL (formulaires en cours d'édition)
 // ============================================
 const EDIT = {
-  venteId:   null,
-  stockId:   null,
-  vendeurId: null,
-  chargeId:  null,
-  detteId:   null,
+  venteId:      null,
+  stockId:      null,
+  vendeurId:    null,
+  chargeId:     null,
+  detteId:      null,
+  defectueuxId: null,
 };
 
 // ============================================
 // PAGINATION
 // ============================================
 const PAGE_SIZE = 20;
-const PAGE = { ventes: 1, stock: 1, charges: 1, dettes: 1 };
+const PAGE = { ventes: 1, stock: 1, charges: 1, dettes: 1, defectueux: 1 };
 
 function paginate(items, table) {
   const total = items.length;
@@ -321,10 +322,11 @@ function paginationBar(table, pages, page, total) {
 
 function changePage(table, dir) {
   PAGE[table] = Math.max(1, PAGE[table] + dir);
-  if (table === 'ventes')  renderVentes();
-  if (table === 'stock')   renderStock();
-  if (table === 'charges') renderCharges();
-  if (table === 'dettes')  renderDettes();
+  if (table === 'ventes')     renderVentes();
+  if (table === 'stock')      renderStock();
+  if (table === 'charges')    renderCharges();
+  if (table === 'dettes')     renderDettes();
+  if (table === 'defectueux') renderDefectueux();
 }
 
 function toast(msg, type = 'success') {
@@ -348,13 +350,14 @@ function hideModal(id) {
 // NAVIGATION
 // ============================================
 const pageTitles = {
-  dashboard: 'Dashboard',
-  ventes: 'Gestion des Ventes',
-  stock: 'Gestion du Stock',
-  vendeurs: 'Gestion des Vendeurs',
-  charges: 'Gestion des Charges',
-  dettes: 'Gestion des Dettes',
-  recus: 'Reçus de Vente'
+  dashboard:  'Dashboard',
+  ventes:     'Gestion des Ventes',
+  stock:      'Gestion du Stock',
+  vendeurs:   'Gestion des Vendeurs',
+  charges:    'Gestion des Charges',
+  dettes:     'Gestion des Dettes',
+  defectueux: 'Produits Défectueux',
+  recus:      'Reçus de Vente'
 };
 
 function navigateTo(page) {
@@ -369,13 +372,14 @@ function navigateTo(page) {
   if (AUTH.currentUser()?.role === 'vendeur') {
     sessionStorage.setItem('venips_last_page', page);
   }
-  if (page === 'dashboard') renderDashboard();
-  if (page === 'ventes') renderVentes();
-  if (page === 'stock') renderStock();
-  if (page === 'vendeurs') renderVendeurs();
-  if (page === 'charges') renderCharges();
-  if (page === 'dettes') renderDettes();
-  if (page === 'recus') renderRecus();
+  if (page === 'dashboard')   renderDashboard();
+  if (page === 'ventes')      renderVentes();
+  if (page === 'stock')       renderStock();
+  if (page === 'vendeurs')    renderVendeurs();
+  if (page === 'charges')     renderCharges();
+  if (page === 'dettes')      renderDettes();
+  if (page === 'defectueux')  renderDefectueux();
+  if (page === 'recus')       renderRecus();
 }
 
 // ============================================
@@ -392,18 +396,20 @@ function renderDashboard() {
     document.head.appendChild(s);
     return;
   }
-  const ventes = DB.getAll('ventes');
-  const stock = DB.getAll('stock');
-  const charges = DB.getAll('charges');
-  const dettes = DB.getAll('dettes');
+  const ventes      = DB.getAll('ventes');
+  const stock       = DB.getAll('stock');
+  const charges     = DB.getAll('charges');
+  const dettes      = DB.getAll('dettes');
+  const defectueux  = DB.getAll('defectueux');
 
   // KPIs
-  const totalCA = ventes.reduce((s, v) => s + (v.pv * v.qty), 0);
-  const totalGain = ventes.reduce((s, v) => s + v.gain, 0);
-  const totalQty = ventes.reduce((s, v) => s + v.qty, 0);
-  const totalCharges = charges.reduce((s, c) => s + c.montant, 0);
+  const totalCA         = ventes.reduce((s, v) => s + (v.pv * v.qty), 0);
+  const totalGain       = ventes.reduce((s, v) => s + v.gain, 0);
+  const totalQty        = ventes.reduce((s, v) => s + v.qty, 0);
+  const totalCharges    = charges.reduce((s, c) => s + c.montant, 0);
   const totalStockItems = stock.reduce((s, p) => s + p.qty, 0);
-  const ruptures = stock.filter(p => p.qty === 0).length;
+  const ruptures        = stock.filter(p => p.qty === 0).length;
+  const totalDefectueux = defectueux.filter(d => d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
 
   document.getElementById('kpi-ca').textContent = fmt(totalCA);
   document.getElementById('kpi-gain').textContent = fmt(totalGain);
@@ -411,6 +417,8 @@ function renderDashboard() {
   document.getElementById('kpi-charges').textContent = fmt(totalCharges);
   document.getElementById('kpi-stock').textContent = fmtNum(totalStockItems);
   document.getElementById('kpi-rupture').textContent = fmtNum(ruptures);
+  const kpiDef = document.getElementById('kpi-defectueux');
+  if (kpiDef) kpiDef.textContent = fmtNum(totalDefectueux);
 
 
   // Comparaison mensuelle
@@ -761,10 +769,12 @@ function populateStockSelect(selectId, selectedNom = '') {
   const sel = document.getElementById(selectId);
   const stock = DB.getAll('stock');
   const ventes = DB.getAll('ventes');
+  const defectueuxList = DB.getAll('defectueux');
   sel.innerHTML = '<option value="">-- Sélectionner --</option>';
   stock.forEach(p => {
     const totalVendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
-    const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - totalVendu);
+    const totalDef   = defectueuxList.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
+    const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - totalVendu - totalDef);
     const opt = document.createElement('option');
     opt.value = p.nom;
     opt.textContent = `${p.nom} (restant: ${restant})`;
@@ -821,13 +831,17 @@ function saveVente() {
   const stockItem = DB.getAll('stock').find(s => s.nom === produit);
   const gain = round((pv - pa) * qty);
 
-  // Calculer le stock restant dynamiquement
-  const toutesVentes = DB.getAll('ventes');
+  // Calculer le stock restant dynamiquement (ventes + défectueux non résolus)
+  const toutesVentes   = DB.getAll('ventes');
+  const tousDefect     = DB.getAll('defectueux');
   const totalDejaVendu = toutesVentes
     .filter(v => v.produit === produit && v.id !== EDIT.venteId)
     .reduce((s, v) => s + (v.qty || 0), 0);
+  const totalDefect    = tousDefect
+    .filter(d => d.produit === produit && d.statut !== 'Résolu')
+    .reduce((s, d) => s + (d.qty || 0), 0);
   const qtyInitial = stockItem ? (stockItem.qtyInitial ?? stockItem.qty ?? 0) : 0;
-  const stockAvant = qtyInitial - totalDejaVendu;
+  const stockAvant = qtyInitial - totalDejaVendu - totalDefect;
   const stockApres = stockAvant - qty;
 
   if (stockApres < 0) {
@@ -890,14 +904,16 @@ function renderStock() {
     tbody.innerHTML = `<tr><td colspan="${isAdmin ? 8 : 4}"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
     return;
   }
-  const toutesVentes = DB.getAll('ventes');
+  const toutesVentes     = DB.getAll('ventes');
+  const tousDefectueux   = DB.getAll('defectueux');
   const paginEl = document.getElementById('stockPageBar');
   const { items: stockPage, total: stockTotal, pages, page } = paginate(stock, 'stock');
 
   tbody.innerHTML = stockPage.map(p => {
-    const initial = p.qtyInitial ?? p.qty;
+    const initial    = p.qtyInitial ?? p.qty;
     const totalVendu = toutesVentes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
-    const restant = Math.max(0, initial - totalVendu);
+    const totalDef   = tousDefectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
+    const restant    = Math.max(0, initial - totalVendu - totalDef);
     const statut = restant === 0 ? '<span class="badge badge-danger">Rupture</span>'
       : restant <= 5 ? '<span class="badge badge-warning">Faible</span>'
       : '<span class="badge badge-success">Disponible</span>';
@@ -1248,6 +1264,129 @@ function markDettePaid(id) {
   DB.update('dettes', id, { statut: 'Payé' });
   toast('Dette marquée comme réglée.');
   renderDettes();
+}
+
+// ============================================
+// DÉFECTUEUX
+// ============================================
+
+function renderDefectueux() {
+  let items = DB.getAll('defectueux');
+
+  // Résumé global
+  const totalQty    = items.reduce((s, d) => s + (d.qty || 0), 0);
+  const enAttente   = items.filter(d => d.statut === 'En attente').length;
+  const resolus     = items.filter(d => d.statut === 'Résolu').length;
+  document.getElementById('def-total-qty').textContent = fmtNum(totalQty);
+  document.getElementById('def-en-attente').textContent = fmtNum(enAttente);
+  document.getElementById('def-resolus').textContent    = fmtNum(resolus);
+
+  // Filtres
+  const monthFilter  = document.getElementById('filterDefMonth').value;
+  const statutFilter = document.getElementById('filterDefStatut').value;
+  const searchFilter = document.getElementById('filterDefSearch').value.toLowerCase();
+  if (monthFilter)  items = items.filter(d => ym(d.date) === monthFilter);
+  if (statutFilter) items = items.filter(d => d.statut === statutFilter);
+  if (searchFilter) items = items.filter(d => d.produit.toLowerCase().includes(searchFilter));
+  items.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const tbody   = document.getElementById('defectueuxBody');
+  const paginEl = document.getElementById('defectueuxPageBar');
+
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">✅</div><p>Aucun produit défectueux trouvé</p></div></td></tr>`;
+    if (paginEl) paginEl.innerHTML = '';
+    return;
+  }
+
+  const { items: page, total, pages, page: pg } = paginate(items, 'defectueux');
+  const STATUT_CLASS = { 'En attente': 'badge-warning', 'Résolu': 'badge-success', 'Irréparable': 'badge-danger' };
+
+  tbody.innerHTML = page.map(d => `
+    <tr>
+      <td data-label="Date">${formatDate(d.date)}</td>
+      <td data-label="Produit"><strong>${escHtml(d.produit)}</strong></td>
+      <td data-label="Qté" style="font-weight:700;color:#ef4444;">${d.qty}</td>
+      <td data-label="Problème" style="max-width:200px;white-space:normal;">${escHtml(d.probleme)}</td>
+      <td data-label="Solution" style="max-width:200px;white-space:normal;">${escHtml(d.solution || '—')}</td>
+      <td data-label="Statut"><span class="badge ${STATUT_CLASS[d.statut] || ''}">${escHtml(d.statut)}</span></td>
+      <td data-label="Actions">
+        <button class="btn btn-sm btn-secondary" onclick="openEditDefectueux(${d.id})">✏️ Modifier</button>
+        <button class="btn btn-sm btn-danger" onclick="confirmDelete('defectueux',${d.id},'le défaut')">🗑️</button>
+      </td>
+    </tr>`).join('');
+  if (paginEl) paginEl.innerHTML = paginationBar('defectueux', pages, pg, total);
+}
+
+function openAddDefectueux() {
+  EDIT.defectueuxId = null;
+  document.getElementById('modalDefTitle').textContent = 'Signaler un Défaut';
+  document.getElementById('def-date').value    = today();
+  document.getElementById('def-qty').value     = 1;
+  document.getElementById('def-statut').value  = 'En attente';
+  document.getElementById('def-probleme').value = '';
+  document.getElementById('def-solution').value = '';
+  // Remplir la liste des produits
+  const sel = document.getElementById('def-produit');
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>';
+  DB.getAll('stock').forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.nom;
+    opt.textContent = p.nom;
+    sel.appendChild(opt);
+  });
+  showModal('modalDefectueux');
+}
+
+function openEditDefectueux(id) {
+  const d = DB.findById('defectueux', id);
+  if (!d) return;
+  EDIT.defectueuxId = id;
+  document.getElementById('modalDefTitle').textContent = 'Modifier Défaut';
+  document.getElementById('def-date').value     = d.date;
+  document.getElementById('def-qty').value      = d.qty;
+  document.getElementById('def-statut').value   = d.statut;
+  document.getElementById('def-probleme').value = d.probleme;
+  document.getElementById('def-solution').value = d.solution || '';
+  const sel = document.getElementById('def-produit');
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>';
+  DB.getAll('stock').forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.nom;
+    opt.textContent = p.nom;
+    if (p.nom === d.produit) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  showModal('modalDefectueux');
+}
+
+function saveDefectueux() {
+  const date     = document.getElementById('def-date').value;
+  const produit  = document.getElementById('def-produit').value;
+  const qty      = parseInt(document.getElementById('def-qty').value);
+  const statut   = document.getElementById('def-statut').value;
+  const probleme = document.getElementById('def-probleme').value.trim();
+  const solution = document.getElementById('def-solution').value.trim();
+
+  if (!date || !produit || !qty || !probleme) {
+    toast('Veuillez remplir tous les champs obligatoires.', 'error'); return;
+  }
+  if (qty <= 0) { toast('Quantité invalide.', 'error'); return; }
+
+  const record = { date, produit, qty, probleme, solution, statut };
+
+  if (EDIT.defectueuxId) {
+    DB.update('defectueux', EDIT.defectueuxId, record);
+    toast('Défaut modifié avec succès.');
+  } else {
+    DB.insert('defectueux', record);
+    toast(`⚠️ Défaut signalé — ${produit} (${qty} unité${qty > 1 ? 's' : ''})`, 'warning');
+  }
+
+  hideModal('modalDefectueux');
+  renderDefectueux();
+  renderStock();
+  renderDashboard();
 }
 
 function printRecuDette(id) {
@@ -1658,15 +1797,17 @@ function exportCSV(table) {
     ventes:   ['Date', 'Produit', 'Qté', 'Prix Achat', 'Prix Vente', 'Gain', 'Vendeur', 'Stock Avant', 'Stock Après'],
     stock:    ['Produit', 'Stock Initial', 'Prix Achat', 'Prix Vente'],
     charges:  ['Date', 'Type', 'Montant', 'Description'],
-    dettes:   ['Nom', 'Type', 'Montant', 'Date', 'Statut'],
-    vendeurs: ['Nom'],
+    dettes:      ['Nom', 'Type', 'Montant', 'Date', 'Statut'],
+    vendeurs:    ['Nom'],
+    defectueux:  ['Date', 'Produit', 'Qté', 'Problème', 'Solution', 'Statut'],
   };
   const ROWS = {
-    ventes:   d => [d.date, d.produit, d.qty, d.pa, d.pv, d.gain, d.vendeur || '', d.stockAvant ?? '', d.stockApres ?? ''],
-    stock:    d => [d.nom, d.qtyInitial ?? d.qty, d.pa, d.pv],
-    charges:  d => [d.date, d.type || '', d.montant, d.desc || ''],
-    dettes:   d => [d.nom, d.type || '', d.montant, d.date || '', d.statut],
-    vendeurs: d => [d.nom],
+    ventes:      d => [d.date, d.produit, d.qty, d.pa, d.pv, d.gain, d.vendeur || '', d.stockAvant ?? '', d.stockApres ?? ''],
+    stock:       d => [d.nom, d.qtyInitial ?? d.qty, d.pa, d.pv],
+    charges:     d => [d.date, d.type || '', d.montant, d.desc || ''],
+    dettes:      d => [d.nom, d.type || '', d.montant, d.date || '', d.statut],
+    vendeurs:    d => [d.nom],
+    defectueux:  d => [d.date, d.produit, d.qty, d.probleme, d.solution || '', d.statut],
   };
 
   const data = DB.getAll(table);
@@ -1702,7 +1843,7 @@ async function downloadBackup() {
 
   if (!DB._serverAvailable) {
     const backup = {};
-    ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'].forEach(t => { backup[t] = DB.getAll(t); });
+    ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'].forEach(t => { backup[t] = DB.getAll(t); });
     triggerDownload(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }), filename);
     toast('Backup téléchargé (mode local).', 'success');
     return;
@@ -1713,7 +1854,7 @@ async function downloadBackup() {
     if (r.status === 401 || r.status === 403) {
       // Token absent ou invalide → fallback sur le cache en mémoire
       const backup = {};
-      ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'].forEach(t => { backup[t] = DB.getAll(t); });
+      ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'].forEach(t => { backup[t] = DB.getAll(t); });
       triggerDownload(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }), filename);
       toast('Backup téléchargé depuis le cache.', 'success');
       return;
@@ -1729,7 +1870,7 @@ async function downloadBackup() {
   } catch (e) {
     // Réseau indisponible → fallback cache
     const backup = {};
-    ['stock', 'ventes', 'vendeurs', 'charges', 'dettes'].forEach(t => { backup[t] = DB.getAll(t); });
+    ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'].forEach(t => { backup[t] = DB.getAll(t); });
     triggerDownload(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }), filename);
     toast('Backup téléchargé depuis le cache.', 'success');
   }
@@ -1821,6 +1962,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnAddDette').addEventListener('click', openAddDette);
   document.getElementById('btnAddRecuLigne').addEventListener('click', () => { recuLignes.push({ produit: '', qty: 1, pu: 0 }); renderRecuLignes(); });
   document.getElementById('btnPrintRecu').addEventListener('click', printRecu);
+  document.getElementById('btnAddDefectueux').addEventListener('click', openAddDefectueux);
 
   // Boutons enregistrer
   document.getElementById('saveVente').addEventListener('click', saveVente);
@@ -1829,6 +1971,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('saveVendeur').addEventListener('click', saveVendeur);
   document.getElementById('saveCharge').addEventListener('click', saveCharge);
   document.getElementById('saveDette').addEventListener('click', saveDette);
+  document.getElementById('saveDefectueux').addEventListener('click', saveDefectueux);
 
   // Calcul gain en temps réel
   ['vente-qty', 'vente-pa', 'vente-pv'].forEach(id => {
@@ -1869,6 +2012,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filterDetteType').value = '';
     document.getElementById('filterDetteStatus').value = '';
     renderDettes();
+  });
+
+  // Filtres Défectueux
+  document.getElementById('filterDefMonth').addEventListener('change', renderDefectueux);
+  document.getElementById('filterDefStatut').addEventListener('change', renderDefectueux);
+  document.getElementById('filterDefSearch').addEventListener('input', debounce(renderDefectueux));
+  document.getElementById('filterDefReset').addEventListener('click', () => {
+    document.getElementById('filterDefMonth').value = '';
+    document.getElementById('filterDefStatut').value = '';
+    document.getElementById('filterDefSearch').value = '';
+    renderDefectueux();
   });
 
 

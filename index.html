@@ -38,6 +38,9 @@
     <li class="nav-item" data-page="recus">
       <span class="nav-icon">🧾</span><span class="nav-label">Reçus</span>
     </li>
+    <li class="nav-item" data-page="defectueux">
+      <span class="nav-icon">⚠️</span><span class="nav-label">Défectueux</span>
+    </li>
     <li class="nav-item" data-page="chatbot">
       <span class="nav-icon">🤖</span><span class="nav-label">Assistant IA</span>
     </li>
@@ -148,6 +151,13 @@
         <div class="kpi-body">
           <div class="kpi-label">Ruptures de Stock</div>
           <div class="kpi-value" id="kpi-rupture">0</div>
+        </div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-icon">🔧</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Unités Défectueuses</div>
+          <div class="kpi-value" id="kpi-defectueux">0</div>
         </div>
       </div>
     </div>
@@ -420,6 +430,57 @@
     </div>
   </section>
 
+
+  <!-- PAGE: DÉFECTUEUX -->
+  <section class="page" id="page-defectueux">
+    <div class="page-header">
+      <h2>Produits Défectueux</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV('defectueux')">⬇ CSV</button>
+        <button class="btn btn-primary" id="btnAddDefectueux">+ Signaler Défaut</button>
+      </div>
+    </div>
+
+    <!-- Résumé -->
+    <div class="summary-row">
+      <div class="summary-card orange"><span>Total Unités Défectueuses</span><strong id="def-total-qty">0</strong></div>
+      <div class="summary-card red"><span>En Attente</span><strong id="def-en-attente">0</strong></div>
+      <div class="summary-card green"><span>Résolus</span><strong id="def-resolus">0</strong></div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filters-bar">
+      <input type="month" id="filterDefMonth" class="filter-input" placeholder="Mois" />
+      <select id="filterDefStatut" class="filter-input">
+        <option value="">Tous les statuts</option>
+        <option value="En attente">En attente</option>
+        <option value="Résolu">Résolu</option>
+        <option value="Irréparable">Irréparable</option>
+      </select>
+      <input type="text" id="filterDefSearch" class="filter-input" placeholder="Rechercher produit..." />
+      <button class="btn btn-secondary btn-sm" id="filterDefReset">Réinitialiser</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Produit</th>
+              <th>Qté</th>
+              <th>Problème</th>
+              <th>Solution</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="defectueuxBody"></tbody>
+        </table>
+      </div>
+      <div id="defectueuxPageBar"></div>
+    </div>
+  </section>
 
   <!-- PAGE: RECUS -->
   <section class="page" id="page-recus">
@@ -723,6 +784,54 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" data-modal="modalRecuVente">Annuler</button>
       <button class="btn btn-primary" id="btnPrintRecuVente">🖨️ Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Défectueux -->
+<div class="modal-overlay" id="modalDefectueux">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalDefTitle">Signaler un Défaut</h3>
+      <button class="modal-close" data-modal="modalDefectueux">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="def-date" />
+        </div>
+        <div class="form-group">
+          <label>Produit *</label>
+          <select id="def-produit" class="filter-input" style="width:100%">
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantité défectueuse *</label>
+          <input type="number" id="def-qty" min="1" value="1" />
+        </div>
+        <div class="form-group">
+          <label>Statut</label>
+          <select id="def-statut">
+            <option value="En attente">En attente</option>
+            <option value="Résolu">Résolu</option>
+            <option value="Irréparable">Irréparable</option>
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Description du problème *</label>
+          <textarea id="def-probleme" rows="3" placeholder="Ex: Écran fissuré, ne s'allume plus..."></textarea>
+        </div>
+        <div class="form-group full-width">
+          <label>Comment résoudre</label>
+          <textarea id="def-solution" rows="3" placeholder="Ex: Remplacer l'écran, retourner au fournisseur..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalDefectueux">Annuler</button>
+      <button class="btn btn-primary" id="saveDefectueux">Enregistrer</button>
     </div>
   </div>
 </div>

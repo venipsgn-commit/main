@@ -569,6 +569,10 @@ body {
 /* ============================================
    TABLES
    ============================================ */
+/* Masquer Stock Avant / Stock Après sur desktop (colonne 4 et 5 de la table ventes) */
+#ventesTable th:nth-child(4), #ventesTable td:nth-child(4),
+#ventesTable th:nth-child(5), #ventesTable td:nth-child(5) { display: none; }
+
 .table-wrap { overflow-x: auto; }
 .data-table {
   width: 100%;
@@ -873,6 +877,10 @@ body {
   /* Table compacte sur tablette */
   .data-table th,
   .data-table td { padding: 8px 10px; font-size: .8rem; }
+  /* Masquer Stock Avant / Stock Après sur tablette pour libérer de la place */
+  #ventesTable th:nth-child(4), #ventesTable td:nth-child(4),
+  #ventesTable th:nth-child(5), #ventesTable td:nth-child(5) { display: none; }
+
 
   /* Comparaison */
   .comparison-grid { flex-wrap: wrap; gap: 8px; }

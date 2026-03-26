@@ -107,17 +107,29 @@ const AUTH = {
   async function tryLogin() {
     const user = userEl.value.trim();
     const pass = passEl.value;
+    btnLogin.disabled = true;
+    btnLogin.textContent = 'Connexion...';
     if (await AUTH.login(user, pass)) {
       errEl.classList.remove('show');
-      // Relancer DB.init() avec le nouveau token pour connecter Supabase
-      await DB.init();
+      DB.loadFromStorage();
       showApp();
+      const u = AUTH.currentUser();
+      const lastPage = sessionStorage.getItem('venips_last_page');
+      const adminPages = ['dashboard','ventes','stock','vendeurs','charges','dettes','defectueux','recus','historique'];
+      const target = u?.role === 'vendeur'
+        ? (['ventes','stock'].includes(lastPage) ? lastPage : 'ventes')
+        : (adminPages.includes(lastPage) ? lastPage : 'dashboard');
+      navigateTo(target);
+      await DB.fetchFromServer();
+      navigateTo(sessionStorage.getItem('venips_last_page') || target);
     } else {
       errEl.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
       errEl.classList.add('show');
       passEl.value = '';
       passEl.focus();
     }
+    btnLogin.disabled = false;
+    btnLogin.textContent = 'Se connecter';
   }
 
   btnLogin.addEventListener('click', tryLogin);
@@ -144,58 +156,57 @@ const DB = {
     return { 'Content-Type': 'application/json', 'x-venips-token': AUTH.getToken(), ...extra };
   },
 
-  // Chargement initial : tente le serveur, sinon localStorage
-  async init() {
+  // Étape 1 (sync, instantané) : charger localStorage → zéro délai, pas de page blanche
+  loadFromStorage() {
     const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'];
+    tables.forEach(t => {
+      try { this._cache[t] = JSON.parse(localStorage.getItem('bp_' + t) || '[]'); } catch { this._cache[t] = []; }
+    });
+  },
 
-    // Vérifier si le serveur est disponible
+  // Étape 2 (async) : contacter le serveur et rafraîchir le cache
+  async fetchFromServer() {
+    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'];
     try {
       const test = await fetch(`${this._BASE}/stock`, {
         headers: this._headers(),
         signal: AbortSignal.timeout(3000)
       });
       if (test.status === 401) {
-        // Token manquant ou expiré → forcer re-connexion seulement si pas en train de login
         if (AUTH.isLoggedIn()) {
           AUTH.logout();
           document.getElementById('loginScreen').classList.remove('hidden');
         }
         return;
       }
-      if (test.ok || test.status === 200) {
-        this._serverAvailable = true;
-      }
+      if (test.ok || test.status === 200) this._serverAvailable = true;
     } catch {
       this._serverAvailable = false;
+      return;
     }
-
     if (this._serverAvailable) {
-      // Migration unique depuis localStorage (si données existantes)
       if (!localStorage.getItem('venips_migrated')) {
         for (const table of tables) {
           let localData = [];
           try { localData = JSON.parse(localStorage.getItem('bp_' + table) || '[]'); } catch {}
           for (const record of localData) {
-            await fetch(`${this._BASE}/${table}`, {
-              method: 'POST',
-              headers: this._headers(),
-              body: JSON.stringify(record)
-            }).catch(() => {});
+            await fetch(`${this._BASE}/${table}`, { method: 'POST', headers: this._headers(), body: JSON.stringify(record) }).catch(() => {});
           }
         }
         localStorage.setItem('venips_migrated', '1');
       }
-      // Charger toutes les tables depuis le serveur
       const results = await Promise.all(
         tables.map(t => fetch(`${this._BASE}/${t}`, { headers: this._headers() }).then(r => r.json()).catch(() => []))
       );
       tables.forEach((t, i) => { this._cache[t] = Array.isArray(results[i]) ? results[i] : []; });
-    } else {
-      // Fallback : localStorage
-      tables.forEach(t => {
-        try { this._cache[t] = JSON.parse(localStorage.getItem('bp_' + t) || '[]'); } catch { this._cache[t] = []; }
-      });
+      tables.forEach(t => { try { localStorage.setItem('bp_' + t, JSON.stringify(this._cache[t])); } catch {} });
     }
+  },
+
+  // Compatibilité (utilisé par tryLogin)
+  async init() {
+    this.loadFromStorage();
+    await this.fetchFromServer();
   },
 
   _saveLocal(table) {
@@ -1991,7 +2002,7 @@ function toggleTheme() {
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
-  await DB.init();
+  DB.loadFromStorage(); // sync, instantané — pas de page blanche
   updateDateDisplay();
 
   // Navigation
@@ -2133,18 +2144,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.nav-admin-only').forEach(el => el.style.display = 'none');
   }
 
-  // Navigation initiale + enregistrement vendeur (DB disponible ici)
+  // Navigation immédiate avec données localStorage (pas d'attente réseau)
   if (AUTH.isLoggedIn()) {
     const user = AUTH.currentUser();
+    const lastPage = sessionStorage.getItem('venips_last_page');
+    const adminPages = ['dashboard','ventes','stock','vendeurs','charges','dettes','defectueux','recus','historique'];
+    const target = user.role === 'vendeur'
+      ? (['ventes','stock'].includes(lastPage) ? lastPage : 'ventes')
+      : (adminPages.includes(lastPage) ? lastPage : 'dashboard');
+    navigateTo(target);
+  }
+
+  // Récupérer les données fraîches du serveur en arrière-plan
+  await DB.fetchFromServer();
+
+  // Re-rendre la page courante avec les données serveur
+  if (AUTH.isLoggedIn()) {
+    const user = AUTH.currentUser();
+    const lastPage = sessionStorage.getItem('venips_last_page');
     if (user.role === 'vendeur') {
-      const nom = user.display;
-      const exists = DB.getAll('vendeurs').some(v => v.nom === nom);
-      if (!exists) DB.insert('vendeurs', { nom });
-      const lastPage = sessionStorage.getItem('venips_last_page');
-      navigateTo(lastPage === 'stock' ? 'stock' : 'ventes');
-    } else {
-      navigateTo('dashboard');
+      const exists = DB.getAll('vendeurs').some(v => v.nom === user.display);
+      if (!exists) DB.insert('vendeurs', { nom: user.display });
     }
+    const adminPages = ['dashboard','ventes','stock','vendeurs','charges','dettes','defectueux','recus','historique'];
+    const target = user.role === 'vendeur'
+      ? (['ventes','stock'].includes(lastPage) ? lastPage : 'ventes')
+      : (adminPages.includes(lastPage) ? lastPage : 'dashboard');
+    navigateTo(target);
   }
 });
 

@@ -41,6 +41,24 @@
     <li class="nav-item" data-page="defectueux">
       <span class="nav-icon">⚠️</span><span class="nav-label">Défectueux</span>
     </li>
+    <li class="nav-item" data-page="fournisseurs">
+      <span class="nav-icon">🏭</span><span class="nav-label">Fournisseurs</span>
+    </li>
+    <li class="nav-item" data-page="clients">
+      <span class="nav-icon">👥</span><span class="nav-label">Clients</span>
+    </li>
+    <li class="nav-item nav-admin-only" data-page="commandes">
+      <span class="nav-icon">📋</span><span class="nav-label">Commandes</span>
+    </li>
+    <li class="nav-item nav-admin-only" data-page="objectifs">
+      <span class="nav-icon">🎯</span><span class="nav-label">Objectifs</span>
+    </li>
+    <li class="nav-item" data-page="retours">
+      <span class="nav-icon">↩️</span><span class="nav-label">Retours</span>
+    </li>
+    <li class="nav-item nav-admin-only" data-page="inventaires">
+      <span class="nav-icon">🔍</span><span class="nav-label">Inventaires</span>
+    </li>
     <li class="nav-item" data-page="chatbot">
       <span class="nav-icon">🤖</span><span class="nav-label">Assistant IA</span>
     </li>
@@ -677,6 +695,145 @@
     </div>
   </section>
 
+  <!-- PAGE: FOURNISSEURS -->
+  <section class="page" id="page-fournisseurs">
+    <div class="page-header">
+      <h2>Fournisseurs</h2>
+      <button class="btn btn-primary" id="btnAddFournisseur" onclick="openAddFournisseur()">+ Ajouter</button>
+    </div>
+    <div class="filters-bar">
+      <input type="text" id="filterFournisseur" class="filter-input" placeholder="🔍 Rechercher…" />
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nom</th><th>Contact</th><th>Téléphone</th><th>Email</th><th>Adresse</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="fournisseursBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: CLIENTS -->
+  <section class="page" id="page-clients">
+    <div class="page-header">
+      <h2>Clients</h2>
+      <button class="btn btn-primary" id="btnAddClient" onclick="openAddClient()">+ Ajouter</button>
+    </div>
+    <div class="filters-bar">
+      <input type="text" id="filterClient" class="filter-input" placeholder="🔍 Rechercher…" />
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nom</th><th>Téléphone</th><th>Email</th><th>Adresse</th><th>Notes</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="clientsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: COMMANDES -->
+  <section class="page" id="page-commandes">
+    <div class="page-header">
+      <h2>Commandes Fournisseurs</h2>
+      <button class="btn btn-primary" id="btnAddCommande" onclick="openAddCommande()">+ Nouvelle Commande</button>
+    </div>
+    <div class="filters-bar">
+      <select id="filterCommandeStatut" class="filter-input">
+        <option value="">Tous les statuts</option>
+        <option value="En attente">En attente</option>
+        <option value="Reçue">Reçue</option>
+        <option value="Annulée">Annulée</option>
+      </select>
+      <input type="text" id="filterCommande" class="filter-input" placeholder="🔍 Produit…" />
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>Produit</th><th>Fournisseur</th><th>Qté</th><th>Montant</th><th>Statut</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="commandesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: OBJECTIFS -->
+  <section class="page" id="page-objectifs">
+    <div class="page-header">
+      <h2>Objectifs CA</h2>
+      <button class="btn btn-primary" id="btnAddObjectif" onclick="openAddObjectif()">+ Définir Objectif</button>
+    </div>
+    <div class="filters-bar">
+      <input type="month" id="filterObjectifPeriode" class="filter-input" />
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Période</th><th>Vendeur</th><th>Objectif CA</th><th>CA Réalisé</th><th>Atteinte</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="objectifsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: RETOURS -->
+  <section class="page" id="page-retours">
+    <div class="page-header">
+      <h2>Retours Produits</h2>
+      <button class="btn btn-primary" id="btnAddRetour" onclick="openAddRetour()">+ Nouveau Retour</button>
+    </div>
+    <div class="filters-bar">
+      <select id="filterRetourStatut" class="filter-input">
+        <option value="">Tous les statuts</option>
+        <option value="En attente">En attente</option>
+        <option value="Traité">Traité</option>
+        <option value="Refusé">Refusé</option>
+      </select>
+      <input type="text" id="filterRetour" class="filter-input" placeholder="🔍 Produit…" />
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>Produit</th><th>Qté</th><th>Type</th><th>Raison</th><th>Montant</th><th>Statut</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="retoursBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: INVENTAIRES -->
+  <section class="page" id="page-inventaires">
+    <div class="page-header">
+      <h2>Inventaires</h2>
+      <button class="btn btn-primary" id="btnAddInventaire" onclick="openAddInventaire()">+ Nouvel Inventaire</button>
+    </div>
+    <div class="filters-bar">
+      <input type="date" id="filterInventaireDate" class="filter-input" />
+      <input type="text" id="filterInventaire" class="filter-input" placeholder="🔍 Produit…" />
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>Produit</th><th>Qté Théorique</th><th>Qté Réelle</th><th>Écart</th><th>Notes</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="inventairesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- PAGE: HISTORIQUE (admin) -->
   <section class="page" id="page-historique">
     <div class="page-header">
@@ -994,6 +1151,267 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" data-modal="modalDefectueux">Annuler</button>
       <button class="btn btn-primary" id="saveDefectueux">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Fournisseur -->
+<div class="modal-overlay" id="modalFournisseur">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalFournisseurTitle">Ajouter Fournisseur</h3>
+      <button class="modal-close" data-modal="modalFournisseur">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Nom *</label>
+          <input type="text" id="fourn-nom" required />
+        </div>
+        <div class="form-group">
+          <label>Contact</label>
+          <input type="text" id="fourn-contact" placeholder="Personne à contacter" />
+        </div>
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" id="fourn-telephone" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="fourn-email" />
+        </div>
+        <div class="form-group full-width">
+          <label>Adresse</label>
+          <input type="text" id="fourn-adresse" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalFournisseur">Annuler</button>
+      <button class="btn btn-primary" id="saveFournisseur">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Client -->
+<div class="modal-overlay" id="modalClient">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalClientTitle">Ajouter Client</h3>
+      <button class="modal-close" data-modal="modalClient">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Nom *</label>
+          <input type="text" id="client-nom" required />
+        </div>
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" id="client-telephone" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="client-email" />
+        </div>
+        <div class="form-group full-width">
+          <label>Adresse</label>
+          <input type="text" id="client-adresse" />
+        </div>
+        <div class="form-group full-width">
+          <label>Notes</label>
+          <textarea id="client-notes" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalClient">Annuler</button>
+      <button class="btn btn-primary" id="saveClient">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Commande -->
+<div class="modal-overlay" id="modalCommande">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalCommandeTitle">Nouvelle Commande</h3>
+      <button class="modal-close" data-modal="modalCommande">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="cmd-date" required />
+        </div>
+        <div class="form-group">
+          <label>Produit *</label>
+          <select id="cmd-produit" required>
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fournisseur</label>
+          <select id="cmd-fournisseur">
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantité *</label>
+          <input type="number" id="cmd-qte" min="1" value="1" required />
+        </div>
+        <div class="form-group">
+          <label>Prix Unitaire</label>
+          <input type="number" id="cmd-prix" min="0" value="0" />
+        </div>
+        <div class="form-group">
+          <label>Statut</label>
+          <select id="cmd-statut">
+            <option value="En attente">En attente</option>
+            <option value="Reçue">Reçue</option>
+            <option value="Annulée">Annulée</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Date Réception</label>
+          <input type="date" id="cmd-dateReception" />
+        </div>
+        <div class="form-group full-width">
+          <label>Notes</label>
+          <textarea id="cmd-notes" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalCommande">Annuler</button>
+      <button class="btn btn-primary" id="saveCommande">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Objectif -->
+<div class="modal-overlay" id="modalObjectif">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3 id="modalObjectifTitle">Définir Objectif</h3>
+      <button class="modal-close" data-modal="modalObjectif">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Période *</label>
+          <input type="month" id="obj-periode" required />
+        </div>
+        <div class="form-group">
+          <label>Vendeur *</label>
+          <select id="obj-vendeur" required>
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Objectif CA (GNF) *</label>
+          <input type="number" id="obj-cible" min="0" required />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalObjectif">Annuler</button>
+      <button class="btn btn-primary" id="saveObjectif">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Retour -->
+<div class="modal-overlay" id="modalRetour">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalRetourTitle">Nouveau Retour</h3>
+      <button class="modal-close" data-modal="modalRetour">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="ret-date" required />
+        </div>
+        <div class="form-group">
+          <label>Produit *</label>
+          <select id="ret-produit" required>
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantité *</label>
+          <input type="number" id="ret-qte" min="1" value="1" required />
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="ret-type">
+            <option value="Remboursement">Remboursement</option>
+            <option value="Échange">Échange</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Statut</label>
+          <select id="ret-statut">
+            <option value="En attente">En attente</option>
+            <option value="Traité">Traité</option>
+            <option value="Refusé">Refusé</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Montant remboursé (GNF)</label>
+          <input type="number" id="ret-montant" min="0" value="0" />
+        </div>
+        <div class="form-group full-width">
+          <label>Raison</label>
+          <textarea id="ret-raison" rows="2" placeholder="Ex: Produit défectueux, erreur de commande…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalRetour">Annuler</button>
+      <button class="btn btn-primary" id="saveRetour">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inventaire -->
+<div class="modal-overlay" id="modalInventaire">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalInventaireTitle">Nouvel Inventaire</h3>
+      <button class="modal-close" data-modal="modalInventaire">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="inv-date" required />
+        </div>
+        <div class="form-group">
+          <label>Produit *</label>
+          <select id="inv-produit" required>
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Qté Théorique (calculée)</label>
+          <input type="number" id="inv-theorique" readonly />
+        </div>
+        <div class="form-group">
+          <label>Qté Réelle *</label>
+          <input type="number" id="inv-reelle" min="0" required />
+        </div>
+        <div class="form-group full-width">
+          <label>Notes</label>
+          <textarea id="inv-notes" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalInventaire">Annuler</button>
+      <button class="btn btn-primary" id="saveInventaire">Enregistrer</button>
     </div>
   </div>
 </div>

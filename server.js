@@ -17,15 +17,24 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 // ── Whitelist et colonnes par table ───────────────────────────────────────────
-const ALLOWED_TABLES = new Set(['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux']);
+const ALLOWED_TABLES = new Set([
+  'stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
+  'fournisseurs', 'commandes', 'objectifs', 'clients', 'retours', 'inventaires'
+]);
 
 const TABLE_COLS = {
-  stock:       ['nom', 'pa', 'pv', 'qtyInitial', 'categorie', 'seuilAlerte', 'createdAt', 'updatedAt'],
-  ventes:      ['date', 'produit', 'qty', 'pa', 'pv', 'remise', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'stockId', 'createdAt', 'updatedAt'],
-  vendeurs:    ['nom', 'createdAt', 'updatedAt'],
-  charges:     ['date', 'type', 'montant', 'desc', 'categorie', 'createdAt', 'updatedAt'],
-  dettes:      ['nom', 'type', 'montant', 'date', 'statut', 'createdAt', 'updatedAt'],
-  defectueux:  ['date', 'produit', 'qty', 'probleme', 'solution', 'statut', 'createdAt', 'updatedAt'],
+  stock:        ['nom', 'pa', 'pv', 'qtyInitial', 'categorie', 'seuilAlerte', 'fournisseurId', 'codeBarres', 'unite', 'createdAt', 'updatedAt'],
+  ventes:       ['date', 'produit', 'qty', 'pa', 'pv', 'remise', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'stockId', 'clientId', 'modePaiement', 'createdAt', 'updatedAt'],
+  vendeurs:     ['nom', 'createdAt', 'updatedAt'],
+  charges:      ['date', 'type', 'montant', 'desc', 'categorie', 'fournisseurId', 'createdAt', 'updatedAt'],
+  dettes:       ['nom', 'type', 'montant', 'date', 'statut', 'clientId', 'createdAt', 'updatedAt'],
+  defectueux:   ['date', 'produit', 'qty', 'probleme', 'solution', 'statut', 'createdAt', 'updatedAt'],
+  fournisseurs: ['nom', 'contact', 'telephone', 'email', 'adresse', 'createdAt', 'updatedAt'],
+  commandes:    ['date', 'produit', 'stockId', 'fournisseurId', 'qte', 'prixUnitaire', 'montant', 'statut', 'notes', 'dateReception', 'createdAt', 'updatedAt'],
+  objectifs:    ['periode', 'vendeur', 'cibleCA', 'createdAt', 'updatedAt'],
+  clients:      ['nom', 'telephone', 'email', 'adresse', 'notes', 'createdAt', 'updatedAt'],
+  retours:      ['date', 'venteId', 'produit', 'qte', 'raison', 'type', 'statut', 'montant', 'createdAt', 'updatedAt'],
+  inventaires:  ['date', 'produit', 'stockId', 'qteTheorique', 'qteReelle', 'ecart', 'notes', 'createdAt', 'updatedAt'],
 };
 
 // Règles de validation par table
@@ -69,6 +78,42 @@ const VALIDATORS = {
     if (b.qty !== undefined && (isNaN(b.qty) || b.qty <= 0)) return 'Quantité invalide';
     if (!b.probleme || typeof b.probleme !== 'string' || b.probleme.trim().length === 0) return 'Description du problème requise';
     if (b.statut && !['En attente', 'Résolu', 'Irréparable'].includes(b.statut)) return 'Statut invalide';
+    return null;
+  },
+  fournisseurs: (b) => {
+    if (!b.nom || typeof b.nom !== 'string' || b.nom.trim().length === 0) return 'Nom requis';
+    if (b.nom.length > 100) return 'Nom trop long (max 100 caractères)';
+    return null;
+  },
+  commandes: (b) => {
+    if (!b.date || !/^\d{4}-\d{2}-\d{2}/.test(b.date)) return 'Date invalide';
+    if (!b.produit || typeof b.produit !== 'string' || b.produit.trim().length === 0) return 'Produit requis';
+    if (b.qte !== undefined && (isNaN(b.qte) || b.qte <= 0)) return 'Quantité invalide';
+    if (b.statut && !['En attente', 'Reçue', 'Annulée'].includes(b.statut)) return 'Statut invalide';
+    return null;
+  },
+  objectifs: (b) => {
+    if (!b.periode || !/^\d{4}-\d{2}$/.test(b.periode)) return 'Période invalide (YYYY-MM)';
+    if (!b.vendeur || typeof b.vendeur !== 'string' || b.vendeur.trim().length === 0) return 'Vendeur requis';
+    if (b.cibleCA !== undefined && (isNaN(b.cibleCA) || b.cibleCA < 0)) return 'Objectif CA invalide';
+    return null;
+  },
+  clients: (b) => {
+    if (!b.nom || typeof b.nom !== 'string' || b.nom.trim().length === 0) return 'Nom requis';
+    if (b.nom.length > 100) return 'Nom trop long (max 100 caractères)';
+    return null;
+  },
+  retours: (b) => {
+    if (!b.date || !/^\d{4}-\d{2}-\d{2}/.test(b.date)) return 'Date invalide';
+    if (!b.produit || typeof b.produit !== 'string' || b.produit.trim().length === 0) return 'Produit requis';
+    if (b.qte !== undefined && (isNaN(b.qte) || b.qte <= 0)) return 'Quantité invalide';
+    if (b.type && !['Remboursement', 'Échange'].includes(b.type)) return 'Type invalide';
+    if (b.statut && !['En attente', 'Traité', 'Refusé'].includes(b.statut)) return 'Statut invalide';
+    return null;
+  },
+  inventaires: (b) => {
+    if (!b.date || !/^\d{4}-\d{2}-\d{2}/.test(b.date)) return 'Date invalide';
+    if (!b.produit || typeof b.produit !== 'string' || b.produit.trim().length === 0) return 'Produit requis';
     return null;
   },
 };
@@ -149,6 +194,86 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_defectueux_produit ON defectueux(produit);
   CREATE INDEX IF NOT EXISTS idx_defectueux_statut  ON defectueux(statut);
 
+  CREATE TABLE IF NOT EXISTS fournisseurs (
+    id         INTEGER PRIMARY KEY,
+    nom        TEXT    NOT NULL,
+    contact    TEXT,
+    telephone  TEXT,
+    email      TEXT,
+    adresse    TEXT,
+    createdAt  TEXT,
+    updatedAt  TEXT
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_fournisseurs_nom ON fournisseurs(nom);
+
+  CREATE TABLE IF NOT EXISTS clients (
+    id        INTEGER PRIMARY KEY,
+    nom       TEXT    NOT NULL,
+    telephone TEXT,
+    email     TEXT,
+    adresse   TEXT,
+    notes     TEXT,
+    createdAt TEXT,
+    updatedAt TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS commandes (
+    id            INTEGER PRIMARY KEY,
+    date          TEXT    NOT NULL,
+    produit       TEXT    NOT NULL,
+    stockId       INTEGER,
+    fournisseurId INTEGER,
+    qte           INTEGER NOT NULL DEFAULT 1,
+    prixUnitaire  REAL    NOT NULL DEFAULT 0,
+    montant       REAL    NOT NULL DEFAULT 0,
+    statut        TEXT    NOT NULL DEFAULT 'En attente',
+    notes         TEXT,
+    dateReception TEXT,
+    createdAt     TEXT,
+    updatedAt     TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_commandes_statut ON commandes(statut);
+  CREATE INDEX IF NOT EXISTS idx_commandes_date   ON commandes(date);
+
+  CREATE TABLE IF NOT EXISTS objectifs (
+    id        INTEGER PRIMARY KEY,
+    periode   TEXT    NOT NULL,
+    vendeur   TEXT    NOT NULL,
+    cibleCA   REAL    NOT NULL DEFAULT 0,
+    createdAt TEXT,
+    updatedAt TEXT
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_objectifs_pv ON objectifs(periode, vendeur);
+
+  CREATE TABLE IF NOT EXISTS retours (
+    id        INTEGER PRIMARY KEY,
+    date      TEXT    NOT NULL,
+    venteId   INTEGER,
+    produit   TEXT    NOT NULL,
+    qte       INTEGER NOT NULL DEFAULT 1,
+    raison    TEXT,
+    type      TEXT    NOT NULL DEFAULT 'Remboursement',
+    statut    TEXT    NOT NULL DEFAULT 'En attente',
+    montant   REAL    NOT NULL DEFAULT 0,
+    createdAt TEXT,
+    updatedAt TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_retours_statut ON retours(statut);
+
+  CREATE TABLE IF NOT EXISTS inventaires (
+    id           INTEGER PRIMARY KEY,
+    date         TEXT    NOT NULL,
+    produit      TEXT    NOT NULL,
+    stockId      INTEGER,
+    qteTheorique INTEGER NOT NULL DEFAULT 0,
+    qteReelle    INTEGER NOT NULL DEFAULT 0,
+    ecart        INTEGER NOT NULL DEFAULT 0,
+    notes        TEXT,
+    createdAt    TEXT,
+    updatedAt    TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_inventaires_date ON inventaires(date);
+
   CREATE TABLE IF NOT EXISTS logs (
     id        INTEGER PRIMARY KEY,
     timestamp TEXT NOT NULL,
@@ -181,6 +306,28 @@ db.exec(`
   }
   if (!stockCols.includes('seuilAlerte')) {
     db.prepare("ALTER TABLE stock ADD COLUMN seuilAlerte INTEGER NOT NULL DEFAULT 5").run();
+  }
+  if (!stockCols.includes('fournisseurId')) {
+    db.prepare("ALTER TABLE stock ADD COLUMN fournisseurId INTEGER").run();
+  }
+  if (!stockCols.includes('codeBarres')) {
+    db.prepare("ALTER TABLE stock ADD COLUMN codeBarres TEXT").run();
+  }
+  if (!stockCols.includes('unite')) {
+    db.prepare("ALTER TABLE stock ADD COLUMN unite TEXT NOT NULL DEFAULT 'unité'").run();
+  }
+  if (!ventesCols.includes('clientId')) {
+    db.prepare("ALTER TABLE ventes ADD COLUMN clientId INTEGER").run();
+  }
+  if (!ventesCols.includes('modePaiement')) {
+    db.prepare("ALTER TABLE ventes ADD COLUMN modePaiement TEXT NOT NULL DEFAULT 'Espèces'").run();
+  }
+  const dettesCols = db.prepare("PRAGMA table_info(dettes)").all().map(r => r.name);
+  if (!dettesCols.includes('clientId')) {
+    db.prepare("ALTER TABLE dettes ADD COLUMN clientId INTEGER").run();
+  }
+  if (!chargesCols.includes('fournisseurId')) {
+    db.prepare("ALTER TABLE charges ADD COLUMN fournisseurId INTEGER").run();
   }
 })();
 

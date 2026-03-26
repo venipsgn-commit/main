@@ -196,7 +196,8 @@ const DB = {
 
   // Étape 1 (sync, instantané) : charger localStorage → zéro délai, pas de page blanche
   loadFromStorage() {
-    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'];
+    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
+                    'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires'];
     tables.forEach(t => {
       try { this._cache[t] = JSON.parse(localStorage.getItem('bp_' + t) || '[]'); } catch { this._cache[t] = []; }
     });
@@ -204,7 +205,8 @@ const DB = {
 
   // Étape 2 (async) : contacter le serveur et rafraîchir le cache
   async fetchFromServer() {
-    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux'];
+    const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
+                    'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires'];
     try {
       const test = await fetch(`${this._BASE}/stock`, {
         headers: this._headers(),
@@ -442,15 +444,21 @@ function hideModal(id) {
 // NAVIGATION
 // ============================================
 const pageTitles = {
-  dashboard:   'Dashboard',
-  ventes:      'Gestion des Ventes',
-  stock:       'Gestion du Stock',
-  vendeurs:    'Gestion des Vendeurs',
-  charges:     'Gestion des Charges',
-  dettes:      'Gestion des Dettes',
-  defectueux:  'Produits Défectueux',
-  recus:       'Reçus de Vente',
-  historique:  'Historique des Modifications'
+  dashboard:    'Dashboard',
+  ventes:       'Gestion des Ventes',
+  stock:        'Gestion du Stock',
+  vendeurs:     'Gestion des Vendeurs',
+  charges:      'Gestion des Charges',
+  dettes:       'Gestion des Dettes',
+  defectueux:   'Produits Défectueux',
+  recus:        'Reçus de Vente',
+  fournisseurs: 'Fournisseurs',
+  clients:      'Clients',
+  commandes:    'Commandes Fournisseurs',
+  objectifs:    'Objectifs CA',
+  retours:      'Retours Produits',
+  inventaires:  'Inventaires',
+  historique:   'Historique des Modifications'
 };
 
 function navigateTo(page) {
@@ -473,6 +481,12 @@ function navigateTo(page) {
   if (page === 'dettes')      renderDettes();
   if (page === 'defectueux')  renderDefectueux();
   if (page === 'recus')       renderRecus();
+  if (page === 'fournisseurs') renderFournisseurs();
+  if (page === 'clients')     renderClients();
+  if (page === 'commandes')   renderCommandes();
+  if (page === 'objectifs')   renderObjectifs();
+  if (page === 'retours')     renderRetours();
+  if (page === 'inventaires') renderInventaires();
   if (page === 'historique')  renderHistorique();
 }
 
@@ -2941,3 +2955,595 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dropdown && !e.target.closest('.notif-wrap')) dropdown.classList.remove('open');
   });
 });
+
+// ============================================
+// FOURNISSEURS
+// ============================================
+let _editFournisseurId = null;
+
+function renderFournisseurs() {
+  const all    = DB.getAll('fournisseurs');
+  const search = (document.getElementById('filterFournisseur')?.value || '').toLowerCase();
+  const tbody  = document.getElementById('fournisseursBody');
+  if (!tbody) return;
+  const list = search ? all.filter(f => (f.nom || '').toLowerCase().includes(search)) : all;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🏭</div><p>Aucun fournisseur</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(f => `
+    <tr>
+      <td><strong>${f.nom}</strong></td>
+      <td>${f.contact || '—'}</td>
+      <td>${f.telephone || '—'}</td>
+      <td>${f.email || '—'}</td>
+      <td>${f.adresse || '—'}</td>
+      <td class="actions-col">
+        <button class="btn btn-sm btn-secondary" onclick="openEditFournisseur(${f.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteFournisseur(${f.id})">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('filterFournisseur')?.addEventListener('input', renderFournisseurs);
+
+function openAddFournisseur() {
+  _editFournisseurId = null;
+  document.getElementById('modalFournisseurTitle').textContent = 'Ajouter Fournisseur';
+  ['fourn-nom','fourn-contact','fourn-telephone','fourn-email','fourn-adresse'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('modalFournisseur').classList.add('open');
+}
+
+function openEditFournisseur(id) {
+  const f = DB.getAll('fournisseurs').find(x => x.id === id);
+  if (!f) return;
+  _editFournisseurId = id;
+  document.getElementById('modalFournisseurTitle').textContent = 'Modifier Fournisseur';
+  document.getElementById('fourn-nom').value       = f.nom       || '';
+  document.getElementById('fourn-contact').value   = f.contact   || '';
+  document.getElementById('fourn-telephone').value = f.telephone || '';
+  document.getElementById('fourn-email').value     = f.email     || '';
+  document.getElementById('fourn-adresse').value   = f.adresse   || '';
+  document.getElementById('modalFournisseur').classList.add('open');
+}
+
+document.getElementById('saveFournisseur')?.addEventListener('click', async () => {
+  const nom = document.getElementById('fourn-nom').value.trim();
+  if (!nom) { toast('Nom requis', 'error'); return; }
+  const record = {
+    nom,
+    contact:   document.getElementById('fourn-contact').value.trim() || null,
+    telephone: document.getElementById('fourn-telephone').value.trim() || null,
+    email:     document.getElementById('fourn-email').value.trim() || null,
+    adresse:   document.getElementById('fourn-adresse').value.trim() || null,
+    createdAt: new Date().toISOString()
+  };
+  if (_editFournisseurId) {
+    DB.update('fournisseurs', _editFournisseurId, record);
+  } else {
+    record.id = Date.now();
+    DB.insert('fournisseurs', record);
+  }
+  hideModal('modalFournisseur');
+  renderFournisseurs();
+  toast(_editFournisseurId ? 'Fournisseur modifié' : 'Fournisseur ajouté', 'success');
+});
+
+function deleteFournisseur(id) {
+  confirmDelete('fournisseurs', id, 'ce fournisseur');
+}
+
+// ============================================
+// CLIENTS
+// ============================================
+let _editClientId = null;
+
+function renderClients() {
+  const all    = DB.getAll('clients');
+  const search = (document.getElementById('filterClient')?.value || '').toLowerCase();
+  const tbody  = document.getElementById('clientsBody');
+  if (!tbody) return;
+  const list = search ? all.filter(c => (c.nom || '').toLowerCase().includes(search)) : all;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👥</div><p>Aucun client</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td><strong>${c.nom}</strong></td>
+      <td>${c.telephone || '—'}</td>
+      <td>${c.email || '—'}</td>
+      <td>${c.adresse || '—'}</td>
+      <td>${c.notes || '—'}</td>
+      <td class="actions-col">
+        <button class="btn btn-sm btn-secondary" onclick="openEditClient(${c.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteClient(${c.id})">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('filterClient')?.addEventListener('input', renderClients);
+
+function openAddClient() {
+  _editClientId = null;
+  document.getElementById('modalClientTitle').textContent = 'Ajouter Client';
+  ['client-nom','client-telephone','client-email','client-adresse','client-notes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('modalClient').classList.add('open');
+}
+
+function openEditClient(id) {
+  const c = DB.getAll('clients').find(x => x.id === id);
+  if (!c) return;
+  _editClientId = id;
+  document.getElementById('modalClientTitle').textContent = 'Modifier Client';
+  document.getElementById('client-nom').value       = c.nom       || '';
+  document.getElementById('client-telephone').value = c.telephone || '';
+  document.getElementById('client-email').value     = c.email     || '';
+  document.getElementById('client-adresse').value   = c.adresse   || '';
+  document.getElementById('client-notes').value     = c.notes     || '';
+  document.getElementById('modalClient').classList.add('open');
+}
+
+document.getElementById('saveClient')?.addEventListener('click', async () => {
+  const nom = document.getElementById('client-nom').value.trim();
+  if (!nom) { toast('Nom requis', 'error'); return; }
+  const record = {
+    nom,
+    telephone: document.getElementById('client-telephone').value.trim() || null,
+    email:     document.getElementById('client-email').value.trim() || null,
+    adresse:   document.getElementById('client-adresse').value.trim() || null,
+    notes:     document.getElementById('client-notes').value.trim() || null,
+    createdAt: new Date().toISOString()
+  };
+  if (_editClientId) {
+    DB.update('clients', _editClientId, record);
+  } else {
+    record.id = Date.now();
+    DB.insert('clients', record);
+  }
+  hideModal('modalClient');
+  renderClients();
+  toast(_editClientId ? 'Client modifié' : 'Client ajouté', 'success');
+});
+
+function deleteClient(id) {
+  confirmDelete('clients', id, 'ce client');
+}
+
+// ============================================
+// COMMANDES
+// ============================================
+let _editCommandeId = null;
+
+function renderCommandes() {
+  const all      = DB.getAll('commandes');
+  const fourn    = DB.getAll('fournisseurs');
+  const statut   = document.getElementById('filterCommandeStatut')?.value || '';
+  const search   = (document.getElementById('filterCommande')?.value || '').toLowerCase();
+  const tbody    = document.getElementById('commandesBody');
+  if (!tbody) return;
+  const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
+  let list = all;
+  if (statut) list = list.filter(c => c.statut === statut);
+  if (search) list = list.filter(c => (c.produit || '').toLowerCase().includes(search));
+  list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
+    return;
+  }
+  const statutColor = { 'En attente': 'orange', 'Reçue': 'green', 'Annulée': 'red' };
+  tbody.innerHTML = list.map(c => {
+    const fournisseurNom = fourn.find(f => f.id === c.fournisseurId)?.nom || '—';
+    const col = statutColor[c.statut] || 'gray';
+    return `<tr>
+      <td>${c.date || '—'}</td>
+      <td><strong>${c.produit}</strong></td>
+      <td>${fournisseurNom}</td>
+      <td>${c.qte}</td>
+      <td>${fmt(c.montant)}</td>
+      <td><span class="badge badge-${col}">${c.statut}</span></td>
+      <td class="actions-col">
+        <button class="btn btn-sm btn-secondary" onclick="openEditCommande(${c.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCommande(${c.id})">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('filterCommandeStatut')?.addEventListener('change', renderCommandes);
+document.getElementById('filterCommande')?.addEventListener('input', renderCommandes);
+
+function _fillCommandeSelects() {
+  const prodSel = document.getElementById('cmd-produit');
+  const foSel   = document.getElementById('cmd-fournisseur');
+  if (prodSel) {
+    const stock = DB.getAll('stock');
+    prodSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
+      stock.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+  }
+  if (foSel) {
+    const fourn = DB.getAll('fournisseurs');
+    foSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
+      fourn.map(f => `<option value="${f.id}">${f.nom}</option>`).join('');
+  }
+}
+
+function openAddCommande() {
+  _editCommandeId = null;
+  document.getElementById('modalCommandeTitle').textContent = 'Nouvelle Commande';
+  _fillCommandeSelects();
+  document.getElementById('cmd-date').value          = new Date().toISOString().slice(0, 10);
+  document.getElementById('cmd-produit').value       = '';
+  document.getElementById('cmd-fournisseur').value   = '';
+  document.getElementById('cmd-qte').value           = '1';
+  document.getElementById('cmd-prix').value          = '0';
+  document.getElementById('cmd-statut').value        = 'En attente';
+  document.getElementById('cmd-dateReception').value = '';
+  document.getElementById('cmd-notes').value         = '';
+  document.getElementById('modalCommande').classList.add('open');
+}
+
+function openEditCommande(id) {
+  const c = DB.getAll('commandes').find(x => x.id === id);
+  if (!c) return;
+  _editCommandeId = id;
+  document.getElementById('modalCommandeTitle').textContent = 'Modifier Commande';
+  _fillCommandeSelects();
+  document.getElementById('cmd-date').value          = c.date          || '';
+  document.getElementById('cmd-produit').value       = c.produit       || '';
+  document.getElementById('cmd-fournisseur').value   = c.fournisseurId || '';
+  document.getElementById('cmd-qte').value           = c.qte           || 1;
+  document.getElementById('cmd-prix').value          = c.prixUnitaire  || 0;
+  document.getElementById('cmd-statut').value        = c.statut        || 'En attente';
+  document.getElementById('cmd-dateReception').value = c.dateReception  || '';
+  document.getElementById('cmd-notes').value         = c.notes         || '';
+  document.getElementById('modalCommande').classList.add('open');
+}
+
+document.getElementById('saveCommande')?.addEventListener('click', async () => {
+  const date    = document.getElementById('cmd-date').value;
+  const produit = document.getElementById('cmd-produit').value;
+  const qte     = Number(document.getElementById('cmd-qte').value);
+  const prix    = Number(document.getElementById('cmd-prix').value);
+  if (!date || !produit || qte <= 0) { toast('Champs obligatoires manquants', 'error'); return; }
+  const fournisseurId = Number(document.getElementById('cmd-fournisseur').value) || null;
+  const record = {
+    date, produit, fournisseurId, qte, prixUnitaire: prix,
+    montant: qte * prix,
+    statut:        document.getElementById('cmd-statut').value,
+    dateReception: document.getElementById('cmd-dateReception').value || null,
+    notes:         document.getElementById('cmd-notes').value.trim() || null,
+    createdAt:     new Date().toISOString()
+  };
+  if (_editCommandeId) {
+    DB.update('commandes', _editCommandeId, record);
+  } else {
+    record.id = Date.now();
+    DB.insert('commandes', record);
+  }
+  hideModal('modalCommande');
+  renderCommandes();
+  toast(_editCommandeId ? 'Commande modifiée' : 'Commande ajoutée', 'success');
+});
+
+function deleteCommande(id) {
+  confirmDelete('commandes', id, 'cette commande');
+}
+
+// ============================================
+// OBJECTIFS
+// ============================================
+let _editObjectifId = null;
+
+function renderObjectifs() {
+  const all     = DB.getAll('objectifs');
+  const ventes  = DB.getAll('ventes');
+  const periode = document.getElementById('filterObjectifPeriode')?.value || '';
+  const tbody   = document.getElementById('objectifsBody');
+  if (!tbody) return;
+  const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
+  const list = periode ? all.filter(o => o.periode === periode) : all;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(o => {
+    const ca = ventes.filter(v => v.date && v.date.startsWith(o.periode) && (!o.vendeur || v.vendeur === o.vendeur))
+                     .reduce((s, v) => s + (v.pv * v.qty), 0);
+    const pct = o.cibleCA > 0 ? Math.round((ca / o.cibleCA) * 100) : 0;
+    const color = pct >= 100 ? 'green' : pct >= 70 ? 'orange' : 'red';
+    return `<tr>
+      <td>${o.periode}</td>
+      <td>${o.vendeur || 'Tous'}</td>
+      <td>${fmt(o.cibleCA)}</td>
+      <td>${fmt(ca)}</td>
+      <td><span class="badge badge-${color}">${pct}%</span></td>
+      <td class="actions-col">
+        <button class="btn btn-sm btn-secondary" onclick="openEditObjectif(${o.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteObjectif(${o.id})">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('filterObjectifPeriode')?.addEventListener('change', renderObjectifs);
+
+function _fillObjVendeurSelect() {
+  const sel = document.getElementById('obj-vendeur');
+  if (!sel) return;
+  const vendeurs = DB.getAll('vendeurs');
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>' +
+    vendeurs.map(v => `<option value="${v.nom}">${v.nom}</option>`).join('');
+}
+
+function openAddObjectif() {
+  _editObjectifId = null;
+  document.getElementById('modalObjectifTitle').textContent = 'Définir Objectif';
+  _fillObjVendeurSelect();
+  document.getElementById('obj-periode').value = new Date().toISOString().slice(0, 7);
+  document.getElementById('obj-vendeur').value = '';
+  document.getElementById('obj-cible').value   = '';
+  document.getElementById('modalObjectif').classList.add('open');
+}
+
+function openEditObjectif(id) {
+  const o = DB.getAll('objectifs').find(x => x.id === id);
+  if (!o) return;
+  _editObjectifId = id;
+  document.getElementById('modalObjectifTitle').textContent = 'Modifier Objectif';
+  _fillObjVendeurSelect();
+  document.getElementById('obj-periode').value = o.periode  || '';
+  document.getElementById('obj-vendeur').value = o.vendeur  || '';
+  document.getElementById('obj-cible').value   = o.cibleCA  || '';
+  document.getElementById('modalObjectif').classList.add('open');
+}
+
+document.getElementById('saveObjectif')?.addEventListener('click', async () => {
+  const periode = document.getElementById('obj-periode').value;
+  const vendeur = document.getElementById('obj-vendeur').value;
+  const cibleCA = Number(document.getElementById('obj-cible').value);
+  if (!periode || !vendeur || isNaN(cibleCA) || cibleCA < 0) { toast('Champs obligatoires manquants', 'error'); return; }
+  const record = { periode, vendeur, cibleCA, createdAt: new Date().toISOString() };
+  if (_editObjectifId) {
+    DB.update('objectifs', _editObjectifId, record);
+  } else {
+    record.id = Date.now();
+    DB.insert('objectifs', record);
+  }
+  hideModal('modalObjectif');
+  renderObjectifs();
+  toast(_editObjectifId ? 'Objectif modifié' : 'Objectif défini', 'success');
+});
+
+function deleteObjectif(id) {
+  confirmDelete('objectifs', id, 'cet objectif');
+}
+
+// ============================================
+// RETOURS
+// ============================================
+let _editRetourId = null;
+
+function renderRetours() {
+  const all    = DB.getAll('retours');
+  const statut = document.getElementById('filterRetourStatut')?.value || '';
+  const search = (document.getElementById('filterRetour')?.value || '').toLowerCase();
+  const tbody  = document.getElementById('retoursBody');
+  if (!tbody) return;
+  const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
+  let list = all;
+  if (statut) list = list.filter(r => r.statut === statut);
+  if (search) list = list.filter(r => (r.produit || '').toLowerCase().includes(search));
+  list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">↩️</div><p>Aucun retour</p></div></td></tr>`;
+    return;
+  }
+  const statutColor = { 'En attente': 'orange', 'Traité': 'green', 'Refusé': 'red' };
+  tbody.innerHTML = list.map(r => `
+    <tr>
+      <td>${r.date || '—'}</td>
+      <td><strong>${r.produit}</strong></td>
+      <td>${r.qte}</td>
+      <td>${r.type || '—'}</td>
+      <td>${r.raison || '—'}</td>
+      <td>${fmt(r.montant)}</td>
+      <td><span class="badge badge-${statutColor[r.statut] || 'gray'}">${r.statut}</span></td>
+      <td class="actions-col">
+        <button class="btn btn-sm btn-secondary" onclick="openEditRetour(${r.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteRetour(${r.id})">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('filterRetourStatut')?.addEventListener('change', renderRetours);
+document.getElementById('filterRetour')?.addEventListener('input', renderRetours);
+
+function _fillRetourProduitSelect() {
+  const sel = document.getElementById('ret-produit');
+  if (!sel) return;
+  const stock = DB.getAll('stock');
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>' +
+    stock.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+}
+
+function openAddRetour() {
+  _editRetourId = null;
+  document.getElementById('modalRetourTitle').textContent = 'Nouveau Retour';
+  _fillRetourProduitSelect();
+  document.getElementById('ret-date').value    = new Date().toISOString().slice(0, 10);
+  document.getElementById('ret-produit').value = '';
+  document.getElementById('ret-qte').value     = '1';
+  document.getElementById('ret-type').value    = 'Remboursement';
+  document.getElementById('ret-statut').value  = 'En attente';
+  document.getElementById('ret-montant').value = '0';
+  document.getElementById('ret-raison').value  = '';
+  document.getElementById('modalRetour').classList.add('open');
+}
+
+function openEditRetour(id) {
+  const r = DB.getAll('retours').find(x => x.id === id);
+  if (!r) return;
+  _editRetourId = id;
+  document.getElementById('modalRetourTitle').textContent = 'Modifier Retour';
+  _fillRetourProduitSelect();
+  document.getElementById('ret-date').value    = r.date    || '';
+  document.getElementById('ret-produit').value = r.produit || '';
+  document.getElementById('ret-qte').value     = r.qte     || 1;
+  document.getElementById('ret-type').value    = r.type    || 'Remboursement';
+  document.getElementById('ret-statut').value  = r.statut  || 'En attente';
+  document.getElementById('ret-montant').value = r.montant || 0;
+  document.getElementById('ret-raison').value  = r.raison  || '';
+  document.getElementById('modalRetour').classList.add('open');
+}
+
+document.getElementById('saveRetour')?.addEventListener('click', async () => {
+  const date    = document.getElementById('ret-date').value;
+  const produit = document.getElementById('ret-produit').value;
+  const qte     = Number(document.getElementById('ret-qte').value);
+  if (!date || !produit || qte <= 0) { toast('Champs obligatoires manquants', 'error'); return; }
+  const record = {
+    date, produit, qte,
+    type:      document.getElementById('ret-type').value,
+    statut:    document.getElementById('ret-statut').value,
+    montant:   Number(document.getElementById('ret-montant').value) || 0,
+    raison:    document.getElementById('ret-raison').value.trim() || null,
+    createdAt: new Date().toISOString()
+  };
+  if (_editRetourId) {
+    DB.update('retours', _editRetourId, record);
+  } else {
+    record.id = Date.now();
+    DB.insert('retours', record);
+  }
+  hideModal('modalRetour');
+  renderRetours();
+  toast(_editRetourId ? 'Retour modifié' : 'Retour enregistré', 'success');
+});
+
+function deleteRetour(id) {
+  confirmDelete('retours', id, 'ce retour');
+}
+
+// ============================================
+// INVENTAIRES
+// ============================================
+let _editInventaireId = null;
+
+function renderInventaires() {
+  const all    = DB.getAll('inventaires');
+  const search = (document.getElementById('filterInventaire')?.value || '').toLowerCase();
+  const dateF  = document.getElementById('filterInventaireDate')?.value || '';
+  const tbody  = document.getElementById('inventairesBody');
+  if (!tbody) return;
+  let list = all;
+  if (dateF)  list = list.filter(i => i.date === dateF);
+  if (search) list = list.filter(i => (i.produit || '').toLowerCase().includes(search));
+  list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔍</div><p>Aucun inventaire</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(i => {
+    const ecart = i.ecart;
+    const ecartEl = ecart > 0 ? `<span style="color:#22c55e">+${ecart}</span>` :
+                    ecart < 0 ? `<span style="color:#ef4444">${ecart}</span>` : `<span>0</span>`;
+    return `<tr>
+      <td>${i.date}</td>
+      <td><strong>${i.produit}</strong></td>
+      <td>${i.qteTheorique}</td>
+      <td>${i.qteReelle}</td>
+      <td>${ecartEl}</td>
+      <td>${i.notes || '—'}</td>
+      <td class="actions-col">
+        <button class="btn btn-sm btn-secondary" onclick="openEditInventaire(${i.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteInventaire(${i.id})">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('filterInventaireDate')?.addEventListener('change', renderInventaires);
+document.getElementById('filterInventaire')?.addEventListener('input', renderInventaires);
+
+function _calcQteTheorique(produitNom) {
+  const stock  = DB.getAll('stock').find(p => p.nom === produitNom);
+  if (!stock) return 0;
+  const ventes = DB.getAll('ventes').filter(v => v.produit === produitNom);
+  const vendus = ventes.reduce((s, v) => s + (v.qty || 0), 0);
+  const defect = DB.getAll('defectueux').filter(d => d.produit === produitNom && d.statut !== 'Résolu')
+                   .reduce((s, d) => s + (d.qty || 0), 0);
+  return (stock.qtyInitial || 0) - vendus - defect;
+}
+
+function _fillInvProduitSelect() {
+  const sel = document.getElementById('inv-produit');
+  if (!sel) return;
+  const stock = DB.getAll('stock');
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>' +
+    stock.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+  sel.onchange = () => {
+    const theorique = _calcQteTheorique(sel.value);
+    const el = document.getElementById('inv-theorique');
+    if (el) el.value = theorique;
+  };
+}
+
+function openAddInventaire() {
+  _editInventaireId = null;
+  document.getElementById('modalInventaireTitle').textContent = 'Nouvel Inventaire';
+  _fillInvProduitSelect();
+  document.getElementById('inv-date').value     = new Date().toISOString().slice(0, 10);
+  document.getElementById('inv-produit').value  = '';
+  document.getElementById('inv-theorique').value = '';
+  document.getElementById('inv-reelle').value   = '';
+  document.getElementById('inv-notes').value    = '';
+  document.getElementById('modalInventaire').classList.add('open');
+}
+
+function openEditInventaire(id) {
+  const inv = DB.getAll('inventaires').find(x => x.id === id);
+  if (!inv) return;
+  _editInventaireId = id;
+  document.getElementById('modalInventaireTitle').textContent = 'Modifier Inventaire';
+  _fillInvProduitSelect();
+  document.getElementById('inv-date').value      = inv.date         || '';
+  document.getElementById('inv-produit').value   = inv.produit      || '';
+  document.getElementById('inv-theorique').value = inv.qteTheorique || 0;
+  document.getElementById('inv-reelle').value    = inv.qteReelle    || 0;
+  document.getElementById('inv-notes').value     = inv.notes        || '';
+  document.getElementById('modalInventaire').classList.add('open');
+}
+
+document.getElementById('saveInventaire')?.addEventListener('click', async () => {
+  const date    = document.getElementById('inv-date').value;
+  const produit = document.getElementById('inv-produit').value;
+  const reelle  = Number(document.getElementById('inv-reelle').value);
+  if (!date || !produit || isNaN(reelle) || reelle < 0) { toast('Champs obligatoires manquants', 'error'); return; }
+  const theorique = _calcQteTheorique(produit);
+  const record = {
+    date, produit,
+    qteTheorique: theorique,
+    qteReelle:    reelle,
+    ecart:        reelle - theorique,
+    notes:        document.getElementById('inv-notes').value.trim() || null,
+    createdAt:    new Date().toISOString()
+  };
+  if (_editInventaireId) {
+    DB.update('inventaires', _editInventaireId, record);
+  } else {
+    record.id = Date.now();
+    DB.insert('inventaires', record);
+  }
+  hideModal('modalInventaire');
+  renderInventaires();
+  toast(_editInventaireId ? 'Inventaire modifié' : 'Inventaire enregistré', 'success');
+});
+
+function deleteInventaire(id) {
+  confirmDelete('inventaires', id, 'cet inventaire');
+}

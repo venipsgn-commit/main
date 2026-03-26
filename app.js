@@ -8,12 +8,12 @@
 // AUTHENTIFICATION
 // ============================================
 const AUTH = {
-  // Mapping username → rôle (aucun mot de passe côté client)
   ROLE_MAP: {
     'VENIPS': { role: 'admin',   display: 'VENIPS' },
     'JACOB':  { role: 'vendeur', display: 'JACOB'  }
   },
-  KEY: 'venips_session',
+  KEY:          'venips_session',
+  OFFLINE_KEY:  'venips_offline_creds',
 
   currentUser() {
     try { return JSON.parse(sessionStorage.getItem(this.KEY)); } catch { return null; }
@@ -22,24 +22,65 @@ const AUTH = {
   isAdmin()     { return this.currentUser()?.role === 'admin'; },
   displayName() { return this.currentUser()?.display || ''; },
 
+  // Hash SHA-256 du mot de passe (pour fallback offline uniquement)
+  async _hash(str) {
+    const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  },
+
+  // Sauvegarder les credentials hachés après une connexion serveur réussie
+  async _saveOfflineCreds(username, password) {
+    try {
+      const hash = await this._hash(password);
+      const creds = JSON.parse(localStorage.getItem(this.OFFLINE_KEY) || '{}');
+      creds[username] = hash;
+      localStorage.setItem(this.OFFLINE_KEY, JSON.stringify(creds));
+    } catch {}
+  },
+
+  // Vérifier en mode offline via le hash stocké
+  async _verifyOffline(username, password) {
+    try {
+      const creds = JSON.parse(localStorage.getItem(this.OFFLINE_KEY) || '{}');
+      if (!creds[username]) return false;
+      const hash = await this._hash(password);
+      return hash === creds[username];
+    } catch { return false; }
+  },
+
   async login(username, password) {
-    // Validation uniquement côté serveur — aucun mot de passe stocké ici
+    // 1. Essayer le serveur en priorité
     try {
       const r = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
+        signal: AbortSignal.timeout(4000)
       });
-      if (!r.ok) return false;
-      const { token } = await r.json();
-      const profile = this.ROLE_MAP[username] || { role: 'vendeur', display: username };
-      sessionStorage.setItem(this.KEY, JSON.stringify({ username, ...profile }));
-      sessionStorage.setItem('venips_token', token);
-      return true;
+      if (r.ok) {
+        const { token } = await r.json();
+        const profile = this.ROLE_MAP[username] || { role: 'vendeur', display: username };
+        sessionStorage.setItem(this.KEY, JSON.stringify({ username, ...profile }));
+        sessionStorage.setItem('venips_token', token);
+        // Sauvegarder pour le fallback offline
+        await this._saveOfflineCreds(username, password);
+        return 'online';
+      }
+      return false; // Mauvais mot de passe côté serveur
     } catch {
+      // 2. Serveur inaccessible → fallback offline
+      const ok = await this._verifyOffline(username, password);
+      if (ok) {
+        const profile = this.ROLE_MAP[username] || { role: 'vendeur', display: username };
+        sessionStorage.setItem(this.KEY, JSON.stringify({ username, ...profile }));
+        // Pas de token valide en offline — on met un placeholder
+        sessionStorage.setItem('venips_token', 'offline');
+        return 'offline';
+      }
       return false;
     }
   },
+
   logout() {
     sessionStorage.removeItem(this.KEY);
     sessionStorage.removeItem('venips_token');
@@ -107,28 +148,38 @@ const AUTH = {
   async function tryLogin() {
     const user = userEl.value.trim();
     const pass = passEl.value;
-    btnLogin.disabled = true;
+    btnLogin.disabled    = true;
     btnLogin.textContent = 'Connexion...';
-    if (await AUTH.login(user, pass)) {
-      errEl.classList.remove('show');
+    errEl.classList.remove('show');
+
+    const result = await AUTH.login(user, pass);
+
+    if (result) {
       DB.loadFromStorage();
       showApp();
-      const u = AUTH.currentUser();
+      const u        = AUTH.currentUser();
       const lastPage = sessionStorage.getItem('venips_last_page');
-      const adminPages = ['dashboard','ventes','stock','vendeurs','charges','dettes','defectueux','recus','historique'];
+      const adminPages = ['dashboard','ventes','stock','vendeurs','charges','dettes','defectueux',
+                          'recus','historique','fournisseurs','clients','commandes','objectifs','retours','inventaires'];
       const target = u?.role === 'vendeur'
         ? (['ventes','stock'].includes(lastPage) ? lastPage : 'ventes')
         : (adminPages.includes(lastPage) ? lastPage : 'dashboard');
       navigateTo(target);
-      await DB.fetchFromServer();
-      navigateTo(sessionStorage.getItem('venips_last_page') || target);
+
+      if (result === 'offline') {
+        // Mode hors-ligne : utiliser le cache localStorage, pas de sync serveur
+        toast('Mode hors-ligne — données locales chargées', 'warning', 4000);
+      } else {
+        await DB.fetchFromServer();
+        navigateTo(sessionStorage.getItem('venips_last_page') || target);
+      }
     } else {
       errEl.textContent = 'Nom d\'utilisateur ou mot de passe incorrect.';
       errEl.classList.add('show');
       passEl.value = '';
       passEl.focus();
     }
-    btnLogin.disabled = false;
+    btnLogin.disabled    = false;
     btnLogin.textContent = 'Se connecter';
   }
 

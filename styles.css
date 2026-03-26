@@ -467,7 +467,7 @@ body {
   margin-bottom: 24px;
 }
 .chart-card { padding: 4px; }
-.chart-card canvas { padding: 12px; }
+.chart-card canvas { padding: 12px; max-width: 100%; display: block; }
 .table-card { min-width: 0; }
 
 /* ============================================
@@ -785,7 +785,10 @@ body {
   outline: none;
   transition: var(--transition);
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
 }
+.form-group textarea { resize: vertical; max-height: 200px; min-height: 80px; }
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
@@ -926,7 +929,10 @@ body {
   .sidebar-overlay {
     display: none;
     position: fixed;
-    inset: 0;
+    top: var(--topbar-h);
+    right: 0;
+    bottom: 0;
+    left: 0;
     background: rgba(0,0,0,.45);
     z-index: 299;
   }
@@ -1018,9 +1024,8 @@ body {
     gap: 8px;
     white-space: normal;
     word-break: break-word;
-    overflow: visible;
-    max-width: none;
-    text-overflow: unset;
+    overflow: hidden;
+    box-sizing: border-box;
   }
   .data-table td:last-child { border-bottom: none; }
   .data-table td::before {
@@ -1030,8 +1035,8 @@ body {
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: .4px;
-    flex-shrink: 0;
-    min-width: 90px;
+    flex: 0 0 80px;
+    overflow: hidden;
   }
   /* Ligne Actions : boutons côte à côte, pleine largeur */
   .data-table td[data-label="Actions"] {
@@ -1063,8 +1068,11 @@ body {
   }
   /* Empty state */
   .data-table tr:has(.empty-state) { border: none; box-shadow: none; background: transparent; }
-  .data-table tr:has(.empty-state) td { display: block; border: none; }
+  .data-table tr:has(.empty-state) td { display: block; border: none; overflow: visible; }
   .data-table tr:has(.empty-state) td::before { display: none; }
+  /* Fallback pour navigateurs sans :has() */
+  .data-table td:not([data-label]) { display: block; overflow: visible; }
+  .data-table td:not([data-label])::before { display: none; }
 
   /* ---- Modals (bottom sheet) ---- */
   .modal-overlay { align-items: flex-end; padding: 0; }
@@ -1166,6 +1174,14 @@ body {
   font-size: .9rem;
   line-height: 1.5;
   white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+@media (max-width: 480px) {
+  .chat-bubble { max-width: 88%; font-size: .85rem; padding: 10px 13px; }
+  .chatbot-window { height: 340px; padding: 14px; }
+  .chatbot-input-bar { gap: 8px; }
+  .chatbot-input-bar input { font-size: .9rem; padding: 10px 12px; }
 }
 .chat-message.bot .chat-bubble {
   background: var(--bg);
@@ -1236,23 +1252,28 @@ body.dark {
 body.dark .data-table tbody tr:hover { background: #243045; }
 
 /* Login card */
-body.dark .login-card { background: #1e293b; }
-body.dark .login-field input { background: #0f172a; color: #e2e8f0; }
-body.dark .login-subtitle { color: #94a3b8; }
+body.dark .login-card { background: var(--white); }
+body.dark .login-field input { background: var(--bg); color: var(--dark); border-color: var(--border); }
+body.dark .login-subtitle { color: var(--muted); }
 
 /* KPI cards dark variant */
 body.dark .kpi-card.dark { background: #243045; }
 
 /* Chatbot */
-body.dark .chatbot-messages { background: #0f172a; }
-body.dark .msg-bot { background: #334155; color: #e2e8f0; }
-body.dark .chatbot-input-bar input { background: #1e293b; color: #e2e8f0; }
+body.dark .chatbot-messages { background: var(--bg); }
+body.dark .chatbot-window { background: var(--white); }
+body.dark .msg-bot { background: var(--border); color: var(--dark); }
+body.dark .chatbot-input-bar input { background: var(--white); color: var(--dark); border-color: var(--border); }
+body.dark .chat-message.bot .chat-bubble { background: var(--border); color: var(--dark); }
+body.dark .suggestion-btn { background: var(--white); border-color: var(--primary); }
 
 /* ============================================
    RECHERCHE GLOBALE
    ============================================ */
 .global-search-wrap {
   position: relative;
+  flex-shrink: 1;
+  min-width: 0;
 }
 .global-search-input {
   background: var(--bg);
@@ -1261,10 +1282,11 @@ body.dark .chatbot-input-bar input { background: #1e293b; color: #e2e8f0; }
   padding: 6px 12px;
   font-size: .85rem;
   width: 200px;
+  max-width: 100%;
   color: var(--dark);
   transition: var(--transition);
 }
-.global-search-input:focus { outline: none; border-color: var(--primary); width: 260px; }
+.global-search-input:focus { outline: none; border-color: var(--primary); width: 260px; max-width: 100%; }
 .global-search-results {
   display: none;
   position: absolute;
@@ -1366,7 +1388,7 @@ body.dark .search-result-label { color: #e2e8f0; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  z-index: 9999;
+  z-index: 2000;
   overflow: hidden;
 }
 .notif-dropdown.open { display: block; }
@@ -1426,20 +1448,18 @@ body.dark .notif-msg      { color: #e2e8f0; }
 body.dark .notif-badge    { border-color: #1e293b; }
 
 /* Dark mode card-view tables */
-body.dark .data-table tr {
-  background: #1e293b;
-  border-color: #334155;
-}
-body.dark .data-table td {
-  border-bottom-color: #243045;
-  color: #e2e8f0;
-}
+body.dark .data-table tr { background: var(--white); border-color: var(--border); }
+body.dark .data-table td { border-bottom-color: var(--bg); color: var(--dark); }
 
 /* Dark mode vente-stat-card */
 body.dark .vente-stat-card { background: #1e293b; }
 
 @media (max-width: 480px) {
-  .notif-dropdown { width: 260px; right: -40px; }
+  .notif-dropdown {
+    width: calc(100vw - 24px);
+    right: -12px;
+    max-width: 300px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1682,4 +1702,15 @@ body.dark .vendeur-tag { background: #3b1e7a; color: #c4b5fd; }
   .sidebar, .topbar, .filters-bar, .btn { display: none !important; }
   .main-content { margin-left: 0; }
   .page { display: block !important; }
+}
+
+/* ============================================
+   ACCESSIBILITÉ — ANIMATIONS RÉDUITES
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }

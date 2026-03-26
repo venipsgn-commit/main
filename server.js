@@ -11,7 +11,9 @@ const helmet       = require('helmet');
 const rateLimit    = require('express-rate-limit');
 
 const app = express();
-const db  = new Database(path.join(__dirname, 'venips.db'));
+// En mode Electron packagé, stocker la DB dans le dossier userData (persistant)
+const DB_DIR = process.env.VENIPS_DATA || __dirname;
+const db  = new Database(path.join(DB_DIR, 'venips.db'));
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -845,7 +847,7 @@ app.get('/api/backup/download', apiLimiter, requireAuth, requireAdmin, (req, res
 });
 
 // ── Sauvegarde automatique ────────────────────────────────────────────────────
-const BACKUP_DIR = path.join(__dirname, 'backups');
+const BACKUP_DIR = path.join(DB_DIR, 'backups');
 const BACKUP_MAX = parseInt(process.env.BACKUP_KEEP || '7');
 
 function runBackup() {

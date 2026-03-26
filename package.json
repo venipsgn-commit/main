@@ -2,12 +2,15 @@
   "name": "venips",
   "version": "1.0.0",
   "description": "VENIPS – Gestion Commerciale",
-  "main": "server.js",
+  "main": "electron-main.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node --test tests/api.test.js",
-    "hash-password": "node hash-password.js"
+    "hash-password": "node hash-password.js",
+    "electron": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
@@ -17,5 +20,52 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "^41.0.4",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.venips.app",
+    "productName": "VENIPS",
+    "copyright": "VENIPS Gestion Commerciale",
+    "files": [
+      "electron-main.js",
+      "server.js",
+      "index.html",
+      "app.js",
+      "styles.css",
+      "sw.js",
+      "manifest.json",
+      "logo.svg",
+      ".env",
+      "node_modules/**/*",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**"
+    ],
+    "extraResources": [
+      { "from": ".env", "to": ".env" }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "logo.svg",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VENIPS",
+      "installerHeaderIcon": "logo.svg"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "logo.svg",
+      "category": "Office"
+    },
+    "directories": {
+      "output": "dist"
+    }
   }
 }

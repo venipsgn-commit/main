@@ -561,6 +561,8 @@ body {
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--dark);
   font-size: .88rem;
   background: var(--white);
   color: var(--dark);
@@ -938,7 +940,16 @@ body {
     margin-bottom: 14px;
   }
   .page-header h2 { font-size: 1.15rem; font-weight: 700; }
-  .page-header .btn { width: 100%; justify-content: center; padding: 11px; }
+  /* Conteneur de boutons dans le header : garder côte à côte */
+  .page-header > div:last-child {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  /* Bouton principal (Nouvelle Vente) prend la place restante */
+  .page-header > div:last-child .btn-primary { flex: 1; justify-content: center; padding: 11px; }
+  /* Bouton secondaire (CSV) reste compact */
+  .page-header > div:last-child .btn-secondary { flex: 0 0 auto; white-space: nowrap; padding: 11px 14px; }
 
   /* ---- KPI ---- */
   .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
@@ -1268,6 +1279,8 @@ body.dark .chatbot-input-bar input { background: #1e293b; color: #e2e8f0; }
 .search-no-result { padding: 14px; text-align: center; color: var(--muted); font-size: .85rem; }
 
 /* Dark mode */
+body.dark .filter-input { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+body.dark .filter-input option { background: #1e293b; color: #e2e8f0; }
 body.dark .global-search-input { background: #1e293b; border-color: #334155; color: #e2e8f0; }
 body.dark .global-search-results { background: #1e293b; border-color: #334155; }
 body.dark .search-result-item:hover { background: #243045; }

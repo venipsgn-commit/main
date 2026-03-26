@@ -19,8 +19,8 @@ db.pragma('foreign_keys = ON');
 const ALLOWED_TABLES = new Set(['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux']);
 
 const TABLE_COLS = {
-  stock:       ['nom', 'pa', 'pv', 'qtyInitial', 'createdAt', 'updatedAt'],
-  ventes:      ['date', 'produit', 'qty', 'pa', 'pv', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'stockId', 'createdAt', 'updatedAt'],
+  stock:       ['nom', 'pa', 'pv', 'qtyInitial', 'categorie', 'seuilAlerte', 'createdAt', 'updatedAt'],
+  ventes:      ['date', 'produit', 'qty', 'pa', 'pv', 'remise', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'stockId', 'createdAt', 'updatedAt'],
   vendeurs:    ['nom', 'createdAt', 'updatedAt'],
   charges:     ['date', 'type', 'montant', 'desc', 'categorie', 'createdAt', 'updatedAt'],
   dettes:      ['nom', 'type', 'montant', 'date', 'statut', 'createdAt', 'updatedAt'],
@@ -35,6 +35,7 @@ const VALIDATORS = {
     if (b.pa !== undefined && (isNaN(b.pa) || b.pa < 0)) return 'Prix achat invalide';
     if (b.pv !== undefined && (isNaN(b.pv) || b.pv < 0)) return 'Prix vente invalide';
     if (b.qtyInitial !== undefined && (isNaN(b.qtyInitial) || b.qtyInitial < 0)) return 'Quantité invalide';
+    if (b.seuilAlerte !== undefined && (isNaN(b.seuilAlerte) || b.seuilAlerte < 0)) return 'Seuil alerte invalide';
     return null;
   },
   ventes: (b) => {
@@ -169,6 +170,16 @@ db.exec(`
   const ventesCols = db.prepare("PRAGMA table_info(ventes)").all().map(r => r.name);
   if (!ventesCols.includes('stockId')) {
     db.prepare("ALTER TABLE ventes ADD COLUMN stockId INTEGER").run();
+  }
+  if (!ventesCols.includes('remise')) {
+    db.prepare("ALTER TABLE ventes ADD COLUMN remise REAL NOT NULL DEFAULT 0").run();
+  }
+  const stockCols = db.prepare("PRAGMA table_info(stock)").all().map(r => r.name);
+  if (!stockCols.includes('categorie')) {
+    db.prepare("ALTER TABLE stock ADD COLUMN categorie TEXT NOT NULL DEFAULT ''").run();
+  }
+  if (!stockCols.includes('seuilAlerte')) {
+    db.prepare("ALTER TABLE stock ADD COLUMN seuilAlerte INTEGER NOT NULL DEFAULT 5").run();
   }
 })();
 
@@ -341,10 +352,11 @@ app.post('/api/ventes', apiLimiter, requireAuth, requireWriteAccess, (req, res) 
   const err = VALIDATORS.ventes(body);
   if (err) return res.status(400).json({ error: err });
 
-  const id  = body.id || (Date.now() * 1000 + Math.floor(Math.random() * 999));
-  const qty = Number(body.qty);
-  const pv  = Number(body.pv);
-  const pa  = body.pa !== undefined ? Number(body.pa) : null;
+  const id     = body.id || (Date.now() * 1000 + Math.floor(Math.random() * 999));
+  const qty    = Number(body.qty);
+  const pv     = Number(body.pv);
+  const pa     = body.pa !== undefined ? Number(body.pa) : null;
+  const remise = body.remise !== undefined ? Math.min(100, Math.max(0, Number(body.remise))) : 0;
   const { date, produit, vendeur } = body;
 
   const doInsert = db.transaction(() => {
@@ -368,16 +380,17 @@ app.post('/api/ventes', apiLimiter, requireAuth, requireWriteAccess, (req, res) 
     }
 
     const realPa    = pa !== null ? pa : (stockItem ? stockItem.pa : 0);
-    const gain      = Math.round(((pv - realPa) * qty) * 100) / 100;
+    const pvApres   = pv * (1 - remise / 100);
+    const gain      = Math.round(((pvApres - realPa) * qty) * 100) / 100;
     const stockId   = stockItem ? stockItem.id : null;
     const createdAt = body.createdAt || new Date().toISOString();
 
-    const record = { id, date, produit, qty, pa: realPa, pv, gain,
+    const record = { id, date, produit, qty, pa: realPa, pv, remise, gain,
                      vendeur: vendeur || null, stockAvant, stockApres, stockId, createdAt };
 
     db.prepare(`INSERT OR REPLACE INTO ventes
-      (id, date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres, stockId, createdAt)
-      VALUES (@id, @date, @produit, @qty, @pa, @pv, @gain, @vendeur, @stockAvant, @stockApres, @stockId, @createdAt)
+      (id, date, produit, qty, pa, pv, remise, gain, vendeur, stockAvant, stockApres, stockId, createdAt)
+      VALUES (@id, @date, @produit, @qty, @pa, @pv, @remise, @gain, @vendeur, @stockAvant, @stockApres, @stockId, @createdAt)
     `).run(record);
 
     return record;

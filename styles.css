@@ -1733,6 +1733,38 @@ body.dark .vendeur-tag { background: #3b1e7a; color: #c4b5fd; }
 /* ============================================
    ACCESSIBILITÉ — ANIMATIONS RÉDUITES
    ============================================ */
+/* ============================================
+   NOUVELLES FONCTIONNALITÉS
+   ============================================ */
+.cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(99,102,241,.12);
+  color: var(--purple);
+  font-size: .75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.remise-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(245,158,11,.15);
+  color: #b45309;
+  font-size: .78rem;
+  font-weight: 700;
+}
+body.dark .remise-badge { background: rgba(245,158,11,.2); color: #fbbf24; }
+body.dark .cat-badge { background: rgba(99,102,241,.2); }
+
+.form-hint {
+  display: block;
+  font-size: .76rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;

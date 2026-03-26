@@ -344,6 +344,7 @@
               <th>Produit</th>
               <th>Qté</th>
               <th>Prix Vente</th>
+              <th>Remise</th>
               <th>Gain</th>
               <th>Stock</th>
               <th class="col-admin-only">Vendeur</th>
@@ -377,10 +378,14 @@
       <select id="filterStockStatus" class="filter-input">
         <option value="">Tous les statuts</option>
         <option value="Disponible">Disponible</option>
+        <option value="Faible">Faible</option>
         <option value="Rupture">Rupture</option>
       </select>
-      <input type="text" id="filterStockSearch" class="filter-input" placeholder="Rechercher produit..." />
-      <button class="btn btn-secondary" id="filterStockReset">Réinitialiser</button>
+      <select id="filterStockCategorie" class="filter-input">
+        <option value="">Toutes les catégories</option>
+      </select>
+      <input type="text" id="filterStockSearch" class="filter-input" placeholder="🔍 Rechercher produit..." />
+      <button class="btn btn-secondary" id="filterStockReset">✕ Réinitialiser</button>
     </div>
 
     <div class="card">
@@ -388,8 +393,8 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Produit</th><th>Stock Initial</th><th>Stock Restant</th><th>Prix Achat</th>
-              <th>Prix Vente</th><th>Marge</th><th>Statut</th><th>Actions</th>
+              <th>Produit</th><th>Catégorie</th><th>Stock Initial</th><th>Stock Restant</th><th>Prix Achat</th>
+              <th>Prix Vente</th><th>Marge</th><th>Prévision</th><th>Statut</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="stockBody"></tbody>
@@ -739,6 +744,10 @@
           <input type="number" id="vente-pv" required />
         </div>
         <div class="form-group">
+          <label>Remise (%)</label>
+          <input type="number" id="vente-remise" min="0" max="100" value="0" placeholder="0" />
+        </div>
+        <div class="form-group">
           <label>Gain (calculé auto)</label>
           <input type="number" id="vente-gain" readonly />
         </div>
@@ -771,6 +780,11 @@
           <input type="text" id="stock-nom" required />
         </div>
         <div class="form-group">
+          <label>Catégorie</label>
+          <input type="text" id="stock-categorie" list="categoriesList" placeholder="Ex: Alimentaire, Électronique…" />
+          <datalist id="categoriesList"></datalist>
+        </div>
+        <div class="form-group">
           <label>Quantité Disponible *</label>
           <input type="number" id="stock-qty" min="0" required />
         </div>
@@ -781,6 +795,11 @@
         <div class="form-group">
           <label>Prix de Vente *</label>
           <input type="number" id="stock-pv" required />
+        </div>
+        <div class="form-group">
+          <label>Seuil Alerte Stock</label>
+          <input type="number" id="stock-seuil" min="0" value="5" />
+          <small class="form-hint">Alerte quand stock ≤ cette valeur</small>
         </div>
       </div>
     </div>

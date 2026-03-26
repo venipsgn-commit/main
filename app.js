@@ -769,6 +769,7 @@ function renderVentes() {
       <td data-label="Produit"><strong>${escHtml(v.produit)}</strong></td>
       <td data-label="Qté"><span class="qty-badge">${v.qty}</span></td>
       <td data-label="Prix Vente">${fmt(v.pv)}</td>
+      <td data-label="Remise">${v.remise ? `<span class="remise-badge">-${v.remise}%</span>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td data-label="Gain"><span class="${gainClass}">${gainIcon} ${fmt(Math.abs(v.gain))}</span></td>
       <td data-label="Stock">${stockCell}</td>
       <td data-label="Vendeur" class="col-admin-only" style="${isAdmin ? '' : 'display:none'}">
@@ -795,6 +796,7 @@ function openAddVente() {
   document.getElementById('vente-qty').value = 1;
   document.getElementById('vente-pa').value = '';
   document.getElementById('vente-pv').value = '';
+  document.getElementById('vente-remise').value = '0';
   document.getElementById('vente-gain').value = '';
   populateStockSelect('vente-produit');
 
@@ -941,6 +943,7 @@ function openEditVente(id) {
   document.getElementById('vente-qty').value = v.qty;
   document.getElementById('vente-pa').value = v.pa;
   document.getElementById('vente-pv').value = v.pv;
+  document.getElementById('vente-remise').value = v.remise || 0;
   document.getElementById('vente-gain').value = v.gain;
   populateStockSelect('vente-produit', v.produit);
   populateVendeurSelect('vente-vendeur', v.vendeur);
@@ -991,10 +994,12 @@ function populateVendeurSelect(selectId, selectedNom = '') {
 }
 
 function calcGain() {
-  const qty = parseFloat(document.getElementById('vente-qty').value) || 0;
-  const pa = parseFloat(document.getElementById('vente-pa').value) || 0;
-  const pv = parseFloat(document.getElementById('vente-pv').value) || 0;
-  document.getElementById('vente-gain').value = round((pv - pa) * qty);
+  const qty    = parseFloat(document.getElementById('vente-qty').value) || 0;
+  const pa     = parseFloat(document.getElementById('vente-pa').value) || 0;
+  const pv     = parseFloat(document.getElementById('vente-pv').value) || 0;
+  const remise = parseFloat(document.getElementById('vente-remise').value) || 0;
+  const pvApres = pv * (1 - remise / 100);
+  document.getElementById('vente-gain').value = round((pvApres - pa) * qty);
 }
 
 function saveVente() {
@@ -1030,12 +1035,14 @@ function saveVente() {
   }
 
   // gain/stockAvant/stockApres envoyés comme valeurs optimistes (le serveur les recalcule)
-  const gain = round((pv - pa) * qty);
+  const remise  = parseFloat(document.getElementById('vente-remise').value) || 0;
+  const pvApres = pv * (1 - remise / 100);
+  const gain    = round((pvApres - pa) * qty);
   const stockId = stockItem ? stockItem.id : null;
-  const record = { date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres, stockId };
+  const record = { date, produit, qty, pa, pv, remise, gain, vendeur, stockAvant, stockApres, stockId };
 
   if (EDIT.venteId) {
-    DB.update('ventes', EDIT.venteId, { date, produit, qty, pa, pv, gain, vendeur, stockId });
+    DB.update('ventes', EDIT.venteId, { date, produit, qty, pa, pv, remise, gain, vendeur, stockId });
     toast('Vente modifiée avec succès.');
   } else {
     DB.insertVente(record);
@@ -1056,15 +1063,32 @@ function saveVente() {
 
 function renderStock() {
   let stock = DB.getAll('stock');
-  const statusFilter = document.getElementById('filterStockStatus').value;
-  const searchFilter = document.getElementById('filterStockSearch').value.toLowerCase();
+  const statusFilter   = document.getElementById('filterStockStatus').value;
+  const catFilter      = document.getElementById('filterStockCategorie').value;
+  const searchFilter   = document.getElementById('filterStockSearch').value.toLowerCase();
+  const toutesVentes   = DB.getAll('ventes');
+  const tousDefectueux = DB.getAll('defectueux');
+
+  // Calculer restant pour chaque produit (pour les filtres statut)
+  const getRestant = (p) => {
+    const initial    = p.qtyInitial ?? p.qty ?? 0;
+    const totalVendu = toutesVentes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+    const totalDef   = tousDefectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
+    return Math.max(0, initial - totalVendu - totalDef);
+  };
 
   if (statusFilter) stock = stock.filter(p => {
-    const s = p.qty > 0 ? 'Disponible' : 'Rupture';
-    return s === statusFilter;
+    const r = getRestant(p);
+    const seuil = p.seuilAlerte ?? 5;
+    if (statusFilter === 'Rupture') return r === 0;
+    if (statusFilter === 'Faible')  return r > 0 && r <= seuil;
+    if (statusFilter === 'Disponible') return r > seuil;
+    return true;
   });
+  if (catFilter)    stock = stock.filter(p => (p.categorie || '') === catFilter);
   if (searchFilter) stock = stock.filter(p => p.nom.toLowerCase().includes(searchFilter));
 
+  _fillCategoriesList();
   stock.sort((a, b) => a.nom.localeCompare(b.nom));
 
   const allStock = DB.getAll('stock');
@@ -1084,22 +1108,29 @@ function renderStock() {
 
   const tbody = document.getElementById('stockBody');
   if (stock.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${isAdmin ? 8 : 4}"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${isAdmin ? 10 : 5}"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit trouvé</p></div></td></tr>`;
     return;
   }
-  const toutesVentes     = DB.getAll('ventes');
-  const tousDefectueux   = DB.getAll('defectueux');
   const paginEl = document.getElementById('stockPageBar');
   const { items: stockPage, total: stockTotal, pages, page } = paginate(stock, 'stock');
+
+  // Calcul de la vélocité de vente sur 30 jours pour les prévisions
+  const date30 = new Date(); date30.setDate(date30.getDate() - 30);
+  const date30Str = date30.toISOString().slice(0, 10);
 
   tbody.innerHTML = stockPage.map(p => {
     const initial    = p.qtyInitial ?? p.qty;
     const totalVendu = toutesVentes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
     const totalDef   = tousDefectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
     const restant    = Math.max(0, initial - totalVendu - totalDef);
-    const statut = restant === 0 ? '<span class="badge badge-danger">Rupture</span>'
-      : restant <= 5 ? '<span class="badge badge-warning">Faible</span>'
-      : '<span class="badge badge-success">Disponible</span>';
+    const seuil      = p.seuilAlerte ?? 5;
+
+    const statut = restant === 0
+      ? '<span class="badge badge-danger">Rupture</span>'
+      : restant <= seuil
+        ? '<span class="badge badge-warning">Faible</span>'
+        : '<span class="badge badge-success">Disponible</span>';
+
     const pctRestant = initial > 0 ? Math.round((restant / initial) * 100) : 0;
     const barColor = pctRestant > 50 ? '#10b981' : pctRestant > 20 ? '#f59e0b' : '#ef4444';
     const progressBar = `<div style="display:flex;align-items:center;gap:6px;">
@@ -1109,9 +1140,27 @@ function renderStock() {
       </div>
       <span style="font-size:.75rem;color:#64748b">${pctRestant}%</span>
     </div>`;
+
+    // Prévision : vélocité sur 30 jours
+    const ventesMois = toutesVentes.filter(v => v.produit === p.nom && v.date >= date30Str);
+    const qtyMois    = ventesMois.reduce((s, v) => s + (v.qty || 0), 0);
+    const avgJour    = qtyMois / 30;
+    let prevision    = '∞';
+    if (avgJour > 0 && restant > 0) {
+      const jours = Math.ceil(restant / avgJour);
+      prevision = jours <= 7  ? `<span style="color:#ef4444;font-weight:700">~${jours}j</span>`
+                : jours <= 30 ? `<span style="color:#f59e0b;font-weight:600">~${jours}j</span>`
+                : `<span style="color:#10b981">~${jours}j</span>`;
+    } else if (restant === 0) {
+      prevision = '<span style="color:#ef4444">Épuisé</span>';
+    }
+
+    const catBadge = p.categorie ? `<span class="cat-badge">${escHtml(p.categorie)}</span>` : '<span style="color:var(--muted);font-size:.8rem">—</span>';
+
     if (!isAdmin) {
       return `<tr>
         <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
+        <td data-label="Catégorie">${catBadge}</td>
         <td data-label="Stock Initial">${initial}</td>
         <td data-label="Stock Restant">${progressBar}</td>
         <td data-label="Statut">${statut}</td>
@@ -1120,11 +1169,13 @@ function renderStock() {
     const marge = p.pa > 0 ? (((p.pv - p.pa) / p.pa) * 100).toFixed(1) : 0;
     return `<tr>
       <td data-label="Produit"><strong>${escHtml(p.nom)}</strong></td>
+      <td data-label="Catégorie">${catBadge}</td>
       <td data-label="Stock Initial">${initial}</td>
       <td data-label="Stock Restant">${progressBar}</td>
       <td data-label="Prix Achat">${fmt(p.pa)}</td>
       <td data-label="Prix Vente">${fmt(p.pv)}</td>
       <td data-label="Marge" class="${marge >= 0 ? 'gain-pos' : 'gain-neg'}">${marge}%</td>
+      <td data-label="Prévision">${prevision}</td>
       <td data-label="Statut">${statut}</td>
       <td data-label="Actions">
         <button class="btn btn-sm btn-secondary" onclick="openEditStock(${p.id})">✏️ Modifier</button>
@@ -1135,13 +1186,28 @@ function renderStock() {
   if (paginEl) paginEl.innerHTML = paginationBar('stock', pages, page, stockTotal);
 }
 
+function _fillCategoriesList() {
+  const cats = [...new Set(DB.getAll('stock').map(p => p.categorie).filter(Boolean))].sort();
+  const dl = document.getElementById('categoriesList');
+  if (dl) dl.innerHTML = cats.map(c => `<option value="${escHtml(c)}">`).join('');
+  const sel = document.getElementById('filterStockCategorie');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Toutes les catégories</option>' +
+      cats.map(c => `<option value="${escHtml(c)}" ${c === cur ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
+  }
+}
+
 function openAddStock() {
   EDIT.stockId = null;
+  _fillCategoriesList();
   document.getElementById('modalStockTitle').textContent = 'Ajouter Produit';
   document.getElementById('stock-nom').value = '';
+  document.getElementById('stock-categorie').value = '';
   document.getElementById('stock-qty').value = '';
   document.getElementById('stock-pa').value = '';
   document.getElementById('stock-pv').value = '';
+  document.getElementById('stock-seuil').value = '5';
   showModal('modalStock');
 }
 
@@ -1149,19 +1215,24 @@ function openEditStock(id) {
   const p = DB.findById('stock', id);
   if (!p) return;
   EDIT.stockId = id;
+  _fillCategoriesList();
   document.getElementById('modalStockTitle').textContent = 'Modifier Produit';
   document.getElementById('stock-nom').value = p.nom;
+  document.getElementById('stock-categorie').value = p.categorie || '';
   document.getElementById('stock-qty').value = p.qtyInitial ?? p.qty;
   document.getElementById('stock-pa').value = p.pa;
   document.getElementById('stock-pv').value = p.pv;
+  document.getElementById('stock-seuil').value = p.seuilAlerte ?? 5;
   showModal('modalStock');
 }
 
 function saveStock() {
-  const nom = document.getElementById('stock-nom').value.trim();
-  const qty = parseInt(document.getElementById('stock-qty').value);
-  const pa = parseFloat(document.getElementById('stock-pa').value);
-  const pv = parseFloat(document.getElementById('stock-pv').value);
+  const nom        = document.getElementById('stock-nom').value.trim();
+  const categorie  = document.getElementById('stock-categorie').value.trim();
+  const qty        = parseInt(document.getElementById('stock-qty').value);
+  const pa         = parseFloat(document.getElementById('stock-pa').value);
+  const pv         = parseFloat(document.getElementById('stock-pv').value);
+  const seuilAlerte = parseInt(document.getElementById('stock-seuil').value) || 5;
 
   if (!nom || isNaN(qty) || isNaN(pa) || isNaN(pv)) {
     toast('Veuillez remplir tous les champs obligatoires.', 'error'); return;
@@ -1169,16 +1240,14 @@ function saveStock() {
   if (qty < 0) { toast('Quantité ne peut pas être négative.', 'error'); return; }
   if (pa < 0 || pv < 0) { toast('Prix invalide.', 'error'); return; }
 
-  // Vérifier doublon nom (hors édition)
   const existing = DB.getAll('stock').find(p => p.nom.toLowerCase() === nom.toLowerCase() && p.id !== EDIT.stockId);
   if (existing) { toast('Un produit avec ce nom existe déjà.', 'error'); return; }
 
   if (EDIT.stockId) {
-    // qty saisie = nouveau stock initial, le restant se recalcule auto depuis les ventes
-    DB.update('stock', EDIT.stockId, { nom, pa, pv, qtyInitial: qty });
+    DB.update('stock', EDIT.stockId, { nom, pa, pv, qtyInitial: qty, categorie, seuilAlerte });
     toast('Produit modifié avec succès.');
   } else {
-    DB.insert('stock', { nom, pa, pv, qtyInitial: qty });
+    DB.insert('stock', { nom, pa, pv, qtyInitial: qty, categorie, seuilAlerte });
     toast('Produit ajouté avec succès.');
   }
   hideModal('modalStock');
@@ -2207,7 +2276,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('saveDefectueux').addEventListener('click', saveDefectueux);
 
   // Calcul gain en temps réel
-  ['vente-qty', 'vente-pa', 'vente-pv'].forEach(id => {
+  ['vente-qty', 'vente-pa', 'vente-pv', 'vente-remise'].forEach(id => {
     document.getElementById(id).addEventListener('input', calcGain);
   });
 
@@ -2225,9 +2294,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Filtres Stock
   document.getElementById('filterStockStatus').addEventListener('change', renderStock);
+  document.getElementById('filterStockCategorie').addEventListener('change', renderStock);
   document.getElementById('filterStockSearch').addEventListener('input', debounce(renderStock));
   document.getElementById('filterStockReset').addEventListener('click', () => {
     document.getElementById('filterStockStatus').value = '';
+    document.getElementById('filterStockCategorie').value = '';
     document.getElementById('filterStockSearch').value = '';
     renderStock();
   });
@@ -2498,8 +2569,9 @@ function renderNotifications() {
     const totalVendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
     const totalDef   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
     const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - totalVendu - totalDef);
-    if (restant === 0)     alertes.push({ type: 'danger',  icon: '🔴', msg: `Rupture de stock : ${p.nom}` });
-    else if (restant <= 5) alertes.push({ type: 'warning', icon: '🟡', msg: `Stock faible (${restant}) : ${p.nom}` });
+    const seuil = p.seuilAlerte ?? 5;
+    if (restant === 0)        alertes.push({ type: 'danger',  icon: '🔴', msg: `Rupture de stock : ${p.nom}` });
+    else if (restant <= seuil) alertes.push({ type: 'warning', icon: '🟡', msg: `Stock faible (${restant}/${seuil}) : ${p.nom}` });
   });
 
   // Dettes impayées depuis +30 jours

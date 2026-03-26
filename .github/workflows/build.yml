@@ -1,0 +1,61 @@
+name: Build VENIPS
+
+on:
+  push:
+    branches: [ "claude/shop-database-setup-y6UBN" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Télécharger le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Créer le .exe Windows
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publier le .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: VENIPS-Windows
+          path: dist/*.exe
+          retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Télécharger le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Créer le AppImage Linux
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publier le AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: VENIPS-Linux
+          path: dist/*.AppImage
+          retention-days: 30

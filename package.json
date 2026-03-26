@@ -38,6 +38,7 @@
       "sw.js",
       "manifest.json",
       "logo.svg",
+      "icon.png",
       ".env",
       "node_modules/**/*",
       "!node_modules/electron/**",
@@ -48,7 +49,7 @@
     ],
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
-      "icon": "logo.svg",
+      "icon": "icon.png",
       "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
@@ -57,11 +58,11 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "VENIPS",
-      "installerHeaderIcon": "logo.svg"
+      "installerHeaderIcon": "icon.png"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
-      "icon": "logo.svg",
+      "target": ["AppImage"],
+      "icon": "icon.png",
       "category": "Office"
     },
     "directories": {

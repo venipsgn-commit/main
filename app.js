@@ -409,6 +409,15 @@ function renderDashboard() {
   const dettes      = DB.getAll('dettes');
   const defectueux  = DB.getAll('defectueux');
 
+  // ── Premier lancement : cache complètement vide ────────────────────────────
+  const totalItems = ventes.length + stock.length + charges.length + dettes.length;
+  if (totalItems === 0 && !DB._serverAvailable) {
+    const recentBody = document.getElementById('recentSalesBody');
+    const lowBody    = document.getElementById('lowStockBody');
+    if (recentBody) recentBody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🚀</div><p>Bienvenue sur VENIPS !</p><p style="font-size:.85rem;color:var(--muted);margin-top:4px;">Commencez par ajouter des produits en stock.</p></div></td></tr>`;
+    if (lowBody)    lowBody.innerHTML    = `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">📦</div><p>Aucun produit encore</p></div></td></tr>`;
+  }
+
   // ── KPIs (rendus en PREMIER, indépendamment de Chart.js) ──────────────────
   const totalCA         = ventes.reduce((s, v) => s + (v.pv * v.qty), 0);
   const totalGain       = ventes.reduce((s, v) => s + v.gain, 0);
@@ -2206,10 +2215,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? (['ventes','stock'].includes(lastPage) ? lastPage : 'ventes')
       : (adminPages.includes(lastPage) ? lastPage : 'dashboard');
     navigateTo(target);
+    renderNotifications();
   }
+
+  // Indicateur sync : en cours
+  const syncEl = document.getElementById('syncIndicator');
+  if (syncEl) { syncEl.className = 'sync-indicator syncing'; syncEl.title = 'Synchronisation…'; }
 
   // Récupérer les données fraîches du serveur en arrière-plan
   await DB.fetchFromServer();
+
+  // Indicateur sync : résultat
+  if (syncEl) {
+    if (DB._serverAvailable) {
+      syncEl.className = 'sync-indicator online';
+      syncEl.title = 'Données synchronisées';
+    } else {
+      syncEl.className = 'sync-indicator offline';
+      syncEl.title = 'Serveur non joignable — données locales';
+    }
+  }
 
   // Re-rendre la page courante avec les données serveur
   if (AUTH.isLoggedIn()) {
@@ -2224,6 +2249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? (['ventes','stock'].includes(lastPage) ? lastPage : 'ventes')
       : (adminPages.includes(lastPage) ? lastPage : 'dashboard');
     navigateTo(target);
+    renderNotifications();
   }
 });
 
@@ -2374,7 +2400,7 @@ function globalSearch(query) {
 })();
 
 // ============================================
-// NOTIFICATIONS (alertes stock + dettes)
+// NOTIFICATIONS (cloche + badge + dropdown)
 // ============================================
 function renderNotifications() {
   if (!AUTH.isLoggedIn()) return;
@@ -2385,25 +2411,87 @@ function renderNotifications() {
 
   const alertes = [];
 
-  // Stock faible ou en rupture
+  // Ruptures et stock faible
   stock.forEach(p => {
     const totalVendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
     const totalDef   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
     const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - totalVendu - totalDef);
-    if (restant === 0) alertes.push({ type: 'danger', msg: `Rupture de stock : ${p.nom}` });
-    else if (restant <= 5) alertes.push({ type: 'warning', msg: `Stock faible (${restant}) : ${p.nom}` });
+    if (restant === 0)     alertes.push({ type: 'danger',  icon: '🔴', msg: `Rupture de stock : ${p.nom}` });
+    else if (restant <= 5) alertes.push({ type: 'warning', icon: '🟡', msg: `Stock faible (${restant}) : ${p.nom}` });
   });
 
-  // Dettes en retard (impayées depuis +30j)
+  // Dettes impayées depuis +30 jours
   const limit30 = new Date(); limit30.setDate(limit30.getDate() - 30);
   dettes.filter(d => d.statut === 'Non payé' && d.date && new Date(d.date) < limit30)
-    .forEach(d => alertes.push({ type: 'warning', msg: `Dette en retard : ${d.nom} (${fmt(d.montant)})` }));
+    .forEach(d => alertes.push({ type: 'warning', icon: '⏰', msg: `Dette en retard : ${d.nom} (${fmt(d.montant)})` }));
 
-  // Afficher les alertes critiques en toast (1 fois par session)
+  // Défectueux non résolus
+  const defEnCours = defectueux.filter(d => d.statut === 'En attente');
+  if (defEnCours.length > 0)
+    alertes.push({ type: 'info', icon: '⚠️', msg: `${defEnCours.length} produit(s) défectueux en attente` });
+
+  // Mettre à jour le badge
+  const badge   = document.getElementById('notifBadge');
+  const list    = document.getElementById('notifList');
+  const btnNotif = document.getElementById('btnNotif');
+
+  if (badge) {
+    if (alertes.length > 0) {
+      badge.textContent = alertes.length > 9 ? '9+' : alertes.length;
+      badge.style.display = '';
+      const hasDanger = alertes.some(a => a.type === 'danger');
+      badge.className = 'notif-badge' + (hasDanger ? ' danger' : '');
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Mettre à jour la liste du dropdown
+  if (list) {
+    if (alertes.length === 0) {
+      list.innerHTML = '<div class="notif-empty">✅ Aucune alerte</div>';
+    } else {
+      list.innerHTML = alertes.map(a => `
+        <div class="notif-item notif-${a.type}">
+          <span class="notif-icon">${a.icon}</span>
+          <span class="notif-msg">${escHtml(a.msg)}</span>
+        </div>`).join('');
+    }
+  }
+
+  // Toast au premier chargement si ruptures critiques
   const shownKey = 'venips_notif_shown';
-  if (alertes.length > 0 && !sessionStorage.getItem(shownKey)) {
-    const critiques = alertes.filter(a => a.type === 'danger');
-    if (critiques.length > 0) toast(`⚠️ ${critiques.length} rupture(s) de stock détectée(s)`, 'warning');
+  if (!sessionStorage.getItem(shownKey) && alertes.length > 0) {
+    const dangers = alertes.filter(a => a.type === 'danger');
+    if (dangers.length > 0) toast(`🔴 ${dangers.length} rupture(s) de stock`, 'error');
+    else toast(`⚠️ ${alertes.length} alerte(s) en attente`, 'warning');
     sessionStorage.setItem(shownKey, '1');
   }
 }
+
+// Toggle dropdown notifications
+document.addEventListener('DOMContentLoaded', () => {
+  const btnNotif = document.getElementById('btnNotif');
+  const dropdown = document.getElementById('notifDropdown');
+  const clearBtn = document.getElementById('notifClear');
+
+  if (btnNotif) {
+    btnNotif.addEventListener('click', e => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      sessionStorage.setItem('venips_notif_shown', '1');
+      const list = document.getElementById('notifList');
+      if (list) list.innerHTML = '<div class="notif-empty">✅ Aucune alerte</div>';
+      const badge = document.getElementById('notifBadge');
+      if (badge) badge.style.display = 'none';
+      dropdown.classList.remove('open');
+    });
+  }
+  document.addEventListener('click', e => {
+    if (dropdown && !e.target.closest('.notif-wrap')) dropdown.classList.remove('open');
+  });
+});

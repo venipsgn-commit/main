@@ -204,23 +204,58 @@ function loadUsers() {
 
 const USERS = loadUsers();
 
+const TOKEN_TTL = 8 * 60 * 60 * 1000; // 8 heures
+
 function makeToken(username) {
   const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
-  return crypto.createHmac('sha256', secret).update(username).digest('hex');
+  const expiresAt = Date.now() + TOKEN_TTL;
+  const payload = Buffer.from(`${username}:${expiresAt}`).toString('base64');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${sig}`;
 }
 
-const VALID_TOKENS = new Map(USERS.map(u => [makeToken(u.username), u.username]));
+function verifyToken(token) {
+  if (!token || !token.includes('.')) return null;
+  const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
+  const dotIdx = token.lastIndexOf('.');
+  const payload = token.slice(0, dotIdx);
+  const sig = token.slice(dotIdx + 1);
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  if (sig !== expected) return null;
+  const decoded = Buffer.from(payload, 'base64').toString();
+  const colonIdx = decoded.indexOf(':');
+  const username = decoded.slice(0, colonIdx);
+  const expiresAt = Number(decoded.slice(colonIdx + 1));
+  if (!username || isNaN(expiresAt) || Date.now() > expiresAt) return null;
+  return username;
+}
 
 function requireAuth(req, res, next) {
   const token = req.headers['x-venips-token'];
-  if (!token || !VALID_TOKENS.has(token)) return res.status(401).json({ error: 'Non autorisé' });
-  req.username = VALID_TOKENS.get(token);
+  const username = verifyToken(token);
+  if (!username) return res.status(401).json({ error: 'Non autorisé' });
+  req.username = username;
+  // Déterminer le rôle (premier user = admin)
+  req.role = (username === USERS[0].username) ? 'admin' : 'vendeur';
   next();
 }
 
 function requireAdmin(req, res, next) {
-  // Le premier utilisateur dans VENIPS_USERS est admin
-  if (req.username !== USERS[0].username) return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+  if (req.role !== 'admin') return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+  next();
+}
+
+// Tables accessibles en écriture pour le vendeur
+const VENDEUR_POST_ALLOWED   = new Set(['ventes', 'vendeurs']);
+const VENDEUR_MUTATE_ALLOWED = new Set(['ventes']);
+
+function requireWriteAccess(req, res, next) {
+  if (req.role === 'admin') return next();
+  const { table } = req.params;
+  if (req.method === 'POST' && !VENDEUR_POST_ALLOWED.has(table))
+    return res.status(403).json({ error: 'Action réservée à l\'administrateur' });
+  if ((req.method === 'PUT' || req.method === 'DELETE') && !VENDEUR_MUTATE_ALLOWED.has(table))
+    return res.status(403).json({ error: 'Action réservée à l\'administrateur' });
   next();
 }
 
@@ -288,11 +323,16 @@ function addLog(username, action, tableName, recordId, details) {
       `INSERT INTO logs (timestamp, username, action, tableName, recordId, details)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(new Date().toISOString(), username, action, tableName, recordId || null, details || null);
+    // Rotation : garder seulement les 1000 dernières entrées
+    const { n } = db.prepare('SELECT COUNT(*) as n FROM logs').get();
+    if (n > 1000) {
+      db.prepare('DELETE FROM logs WHERE id IN (SELECT id FROM logs ORDER BY id ASC LIMIT ?)').run(n - 1000);
+    }
   } catch {}
 }
 
 // ── POST /api/:table ──────────────────────────────────────────────────────────
-app.post('/api/:table', apiLimiter, requireAuth, (req, res) => {
+app.post('/api/:table', apiLimiter, requireAuth, requireWriteAccess, (req, res) => {
   const { table } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
 
@@ -315,7 +355,7 @@ app.post('/api/:table', apiLimiter, requireAuth, (req, res) => {
 });
 
 // ── PUT /api/:table/:id ───────────────────────────────────────────────────────
-app.put('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
+app.put('/api/:table/:id', apiLimiter, requireAuth, requireWriteAccess, (req, res) => {
   const { table, id } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
 
@@ -337,7 +377,7 @@ app.put('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
 });
 
 // ── DELETE /api/:table/:id ────────────────────────────────────────────────────
-app.delete('/api/:table/:id', apiLimiter, requireAuth, (req, res) => {
+app.delete('/api/:table/:id', apiLimiter, requireAuth, requireWriteAccess, (req, res) => {
   const { table, id } = req.params;
   if (!ALLOWED_TABLES.has(table)) return res.status(404).json({ error: 'Table inconnue' });
   const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(Number(id));

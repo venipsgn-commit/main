@@ -220,7 +220,7 @@ const DB = {
   },
 
   insert(table, record) {
-    record.id = Date.now() + Math.floor(Math.random() * 1000);
+    record.id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
     record.createdAt = new Date().toISOString();
     this._cache[table].push(record);
     if (this._serverAvailable) {
@@ -380,8 +380,8 @@ function navigateTo(page) {
   if (navItem) navItem.classList.add('active');
   if (pageEl) pageEl.classList.add('active');
   document.getElementById('pageTitle').textContent = pageTitles[page] || page;
-  // Mémoriser la page courante pour JACOB
-  if (AUTH.currentUser()?.role === 'vendeur') {
+  // Mémoriser la page courante pour tous les utilisateurs
+  if (AUTH.isLoggedIn()) {
     sessionStorage.setItem('venips_last_page', page);
   }
   if (page === 'dashboard')   renderDashboard();
@@ -403,20 +403,13 @@ let chartGains = null;
 let chartChargesVsGains = null;
 
 function renderDashboard() {
-  if (typeof Chart === 'undefined') {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-    s.onload = () => renderDashboard();
-    document.head.appendChild(s);
-    return;
-  }
   const ventes      = DB.getAll('ventes');
   const stock       = DB.getAll('stock');
   const charges     = DB.getAll('charges');
   const dettes      = DB.getAll('dettes');
   const defectueux  = DB.getAll('defectueux');
 
-  // KPIs
+  // ── KPIs (rendus en PREMIER, indépendamment de Chart.js) ──────────────────
   const totalCA         = ventes.reduce((s, v) => s + (v.pv * v.qty), 0);
   const totalGain       = ventes.reduce((s, v) => s + v.gain, 0);
   const totalQty        = ventes.reduce((s, v) => s + v.qty, 0);
@@ -442,7 +435,6 @@ function renderDashboard() {
     kpiRetard.closest('.kpi-card').classList.toggle('orange', dettesRetard === 0);
   }
 
-
   // Comparaison mensuelle
   const curYM = currentYM();
   const pYM = prevYM();
@@ -467,6 +459,50 @@ function renderDashboard() {
 
   const unpaidDettes = dettes.filter(d => d.statut === 'Non payé').length;
   document.getElementById('unpaid-debts').textContent = unpaidDettes;
+
+  // Dernières ventes
+  const recent = [...ventes].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
+  const recentBody = document.getElementById('recentSalesBody');
+  if (recentBody) {
+    if (recent.length === 0) {
+      recentBody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🛒</div><p>Aucune vente enregistrée</p></div></td></tr>`;
+    } else {
+      recentBody.innerHTML = recent.map(v => `
+        <tr>
+          <td data-label="Date">${formatDate(v.date)}</td>
+          <td data-label="Produit">${escHtml(v.produit)}</td>
+          <td data-label="Qté">${v.qty}</td>
+          <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
+        </tr>`).join('');
+    }
+  }
+
+  // Stock faible
+  const lowBody = document.getElementById('lowStockBody');
+  const lowItems = stock.filter(p => p.qty <= 10).sort((a, b) => a.qty - b.qty);
+  if (lowBody) {
+    if (lowItems.length === 0) {
+      lowBody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">✅</div><p>Aucun produit en stock faible</p></div></td></tr>`;
+    } else {
+      lowBody.innerHTML = lowItems.map(p => `
+        <tr>
+          <td data-label="Produit">${escHtml(p.nom)}</td>
+          <td data-label="Qté">${p.qty}</td>
+          <td data-label="Statut">${p.qty === 0
+            ? '<span class="badge badge-danger">Rupture</span>'
+            : '<span class="badge badge-warning">Faible</span>'}</td>
+        </tr>`).join('');
+    }
+  }
+
+  // ── Graphiques Chart.js (chargés APRÈS les KPIs) ──────────────────────────
+  if (typeof Chart === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    s.onload = () => renderDashboard();
+    document.head.appendChild(s);
+    return; // KPIs déjà affichés, graphiques après chargement
+  }
 
   // Graphiques (12 derniers mois)
   const months = getLast12Months();
@@ -498,36 +534,6 @@ function renderDashboard() {
     });
   }
 
-  // Dernières ventes
-  const recent = [...ventes].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
-  const recentBody = document.getElementById('recentSalesBody');
-  if (recent.length === 0) {
-    recentBody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🛒</div><p>Aucune vente enregistrée</p></div></td></tr>`;
-  } else {
-    recentBody.innerHTML = recent.map(v => `
-      <tr>
-        <td data-label="Date">${formatDate(v.date)}</td>
-        <td data-label="Produit">${escHtml(v.produit)}</td>
-        <td data-label="Qté">${v.qty}</td>
-        <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
-      </tr>`).join('');
-  }
-
-  // Stock faible
-  const lowBody = document.getElementById('lowStockBody');
-  const lowItems = stock.filter(p => p.qty <= 10).sort((a, b) => a.qty - b.qty);
-  if (lowItems.length === 0) {
-    lowBody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">✅</div><p>Aucun produit en stock faible</p></div></td></tr>`;
-  } else {
-    lowBody.innerHTML = lowItems.map(p => `
-      <tr>
-        <td data-label="Produit">${escHtml(p.nom)}</td>
-        <td data-label="Qté">${p.qty}</td>
-        <td data-label="Statut">${p.qty === 0
-          ? '<span class="badge badge-danger">Rupture</span>'
-          : '<span class="badge badge-warning">Faible</span>'}</td>
-      </tr>`).join('');
-  }
 }
 
 function setBadge(id, cur, prev) {

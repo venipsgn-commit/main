@@ -441,6 +441,76 @@ function hideModal(id) {
 }
 
 // ============================================
+// EXPORT CSV
+// ============================================
+function exportCSV(table, rows, columns, labels) {
+  // Appelable avec juste le nom de table (les pages existantes)
+  if (!Array.isArray(rows)) { rows = DB.getAll(table); }
+  if (!rows || !rows.length) { toast('Aucune donnée à exporter', 'warning'); return; }
+  const cols = columns || Object.keys(rows[0]).filter(k => k !== 'id');
+  const heads = labels || cols;
+  const escape = v => {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [heads.join(','), ...rows.map(r => cols.map(c => escape(r[c])).join(','))].join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `venips_${table}_${new Date().toISOString().slice(0,10)}.csv`
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`Export CSV : ${rows.length} ligne(s)`, 'success');
+}
+
+function exportVentesCSV() {
+  const rows = DB.getAll('ventes');
+  exportCSV('ventes', rows,
+    ['date','produit','qty','pa','pv','remise','gain','vendeur'],
+    ['Date','Produit','Qté','PA','PV','Remise%','Gain','Vendeur']);
+}
+function exportStockCSV() {
+  const stock  = DB.getAll('stock');
+  const ventes = DB.getAll('ventes');
+  const rows = stock.map(p => {
+    const vendu  = ventes.filter(v => v.produit === p.nom).reduce((s,v) => s+(v.qty||0), 0);
+    const restant = (p.qtyInitial||0) - vendu;
+    return { nom: p.nom, categorie: p.categorie||'', pa: p.pa, pv: p.pv, qtyInitial: p.qtyInitial, vendu, restant };
+  });
+  exportCSV('stock', rows,
+    ['nom','categorie','pa','pv','qtyInitial','vendu','restant'],
+    ['Produit','Catégorie','PA','PV','Qté Initiale','Vendu','Restant']);
+}
+function exportChargesCSV() {
+  exportCSV('charges', DB.getAll('charges'),
+    ['date','categorie','type','montant','desc'],
+    ['Date','Catégorie','Type','Montant','Description']);
+}
+function exportDettesCSV() {
+  exportCSV('dettes', DB.getAll('dettes'),
+    ['date','nom','type','montant','statut'],
+    ['Date','Nom','Type','Montant','Statut']);
+}
+function exportCommandesCSV() {
+  exportCSV('commandes', DB.getAll('commandes'),
+    ['date','produit','qte','prixUnitaire','montant','statut','dateReception','notes'],
+    ['Date','Produit','Qté','Prix Unit.','Montant','Statut','Date Réception','Notes']);
+}
+function exportRetoursCSV() {
+  exportCSV('retours', DB.getAll('retours'),
+    ['date','produit','qte','type','raison','montant','statut'],
+    ['Date','Produit','Qté','Type','Raison','Montant','Statut']);
+}
+function exportInventairesCSV() {
+  exportCSV('inventaires', DB.getAll('inventaires'),
+    ['date','produit','qteTheorique','qteReelle','ecart','notes'],
+    ['Date','Produit','Qté Théorique','Qté Réelle','Écart','Notes']);
+}
 // NAVIGATION
 // ============================================
 const pageTitles = {
@@ -3210,24 +3280,47 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
   const qte     = Number(document.getElementById('cmd-qte').value);
   const prix    = Number(document.getElementById('cmd-prix').value);
   if (!date || !produit || qte <= 0) { toast('Champs obligatoires manquants', 'error'); return; }
-  const fournisseurId = Number(document.getElementById('cmd-fournisseur').value) || null;
+  const fournisseurId  = Number(document.getElementById('cmd-fournisseur').value) || null;
+  const nouveauStatut  = document.getElementById('cmd-statut').value;
+  const dateReception  = document.getElementById('cmd-dateReception').value || null;
   const record = {
     date, produit, fournisseurId, qte, prixUnitaire: prix,
     montant: qte * prix,
-    statut:        document.getElementById('cmd-statut').value,
-    dateReception: document.getElementById('cmd-dateReception').value || null,
+    statut:        nouveauStatut,
+    dateReception: nouveauStatut === 'Reçue' ? (dateReception || new Date().toISOString().slice(0,10)) : dateReception,
     notes:         document.getElementById('cmd-notes').value.trim() || null,
     createdAt:     new Date().toISOString()
   };
+
+  // Détecter si le statut passe à "Reçue" pour la première fois → incrémenter le stock
+  let ancienStatut = null;
   if (_editCommandeId) {
+    const ancienne = DB.getAll('commandes').find(c => c.id === _editCommandeId);
+    ancienStatut = ancienne?.statut || null;
     DB.update('commandes', _editCommandeId, record);
   } else {
     record.id = Date.now();
     DB.insert('commandes', record);
   }
+
+  if (nouveauStatut === 'Reçue' && ancienStatut !== 'Reçue') {
+    // Ajouter la quantité reçue au qtyInitial du produit en stock
+    const stockItem = DB.getAll('stock').find(p => p.nom === produit);
+    if (stockItem) {
+      const nouvelleQty = (stockItem.qtyInitial || 0) + qte;
+      DB.update('stock', stockItem.id, { qtyInitial: nouvelleQty });
+      toast(`✅ Commande reçue — Stock de "${produit}" mis à jour (+${qte})`, 'success', 4000);
+    } else {
+      toast('Commande marquée reçue (produit introuvable en stock)', 'warning');
+    }
+    renderStock();
+    renderDashboard();
+  } else {
+    toast(_editCommandeId ? 'Commande modifiée' : 'Commande ajoutée', 'success');
+  }
+
   hideModal('modalCommande');
   renderCommandes();
-  toast(_editCommandeId ? 'Commande modifiée' : 'Commande ajoutée', 'success');
 });
 
 function deleteCommande(id) {
@@ -3246,22 +3339,32 @@ function renderObjectifs() {
   const tbody   = document.getElementById('objectifsBody');
   if (!tbody) return;
   const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
-  const list = periode ? all.filter(o => o.periode === periode) : all;
+  const list = [...(periode ? all.filter(o => o.periode === periode) : all)]
+                 .sort((a, b) => b.periode.localeCompare(a.periode));
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(o => {
-    const ca = ventes.filter(v => v.date && v.date.startsWith(o.periode) && (!o.vendeur || v.vendeur === o.vendeur))
-                     .reduce((s, v) => s + (v.pv * v.qty), 0);
-    const pct = o.cibleCA > 0 ? Math.round((ca / o.cibleCA) * 100) : 0;
-    const color = pct >= 100 ? 'green' : pct >= 70 ? 'orange' : 'red';
+    const ca    = ventes.filter(v => v.date && v.date.startsWith(o.periode) && (!o.vendeur || v.vendeur === o.vendeur))
+                        .reduce((s, v) => s + (v.pv * v.qty), 0);
+    const pct   = o.cibleCA > 0 ? Math.min(100, Math.round((ca / o.cibleCA) * 100)) : 0;
+    const pctReal = o.cibleCA > 0 ? Math.round((ca / o.cibleCA) * 100) : 0;
+    const barColor = pct >= 100 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#ef4444';
+    const badgeClass = pct >= 100 ? 'badge-success' : pct >= 70 ? 'badge-warning' : 'badge-danger';
     return `<tr>
       <td>${o.periode}</td>
       <td>${o.vendeur || 'Tous'}</td>
       <td>${fmt(o.cibleCA)}</td>
       <td>${fmt(ca)}</td>
-      <td><span class="badge badge-${color}">${pct}%</span></td>
+      <td style="min-width:140px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:var(--border);border-radius:99px;height:8px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${barColor};border-radius:99px;transition:width .4s"></div>
+          </div>
+          <span class="badge ${badgeClass}" style="min-width:42px;text-align:center">${pctReal}%</span>
+        </div>
+      </td>
       <td class="actions-col">
         <button class="btn btn-sm btn-secondary" onclick="openEditObjectif(${o.id})">✏️</button>
         <button class="btn btn-sm btn-danger" onclick="deleteObjectif(${o.id})">🗑️</button>

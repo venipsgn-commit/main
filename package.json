@@ -15,6 +15,7 @@
   "dependencies": {
     "better-sqlite3": "^12.8.0",
     "dotenv": "^17.3.1",
+    "express": "^4.22.1",
     "express-rate-limit": "^8.3.1",
     "helmet": "^8.1.0"
   },
@@ -29,6 +30,7 @@
     "appId": "com.venips.app",
     "productName": "VENIPS",
     "copyright": "VENIPS Gestion Commerciale",
+    "asar": false,
     "files": [
       "electron-main.js",
       "server.js",
@@ -40,13 +42,12 @@
       "logo.svg",
       "icon.png",
       ".env",
+      "api/**/*",
       "node_modules/**/*",
       "!node_modules/electron/**",
       "!node_modules/electron-builder/**"
     ],
-    "extraResources": [
-      { "from": ".env", "to": ".env" }
-    ],
+    "extraResources": [],
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "icon.png",

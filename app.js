@@ -307,6 +307,44 @@ const DB = {
 
   findById(table, id) {
     return this._cache[table].find(r => r.id === id) || null;
+  },
+
+  // Insertion spécialisée pour les ventes : le serveur calcule gain/stock
+  insertVente(record) {
+    record.id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    record.createdAt = new Date().toISOString();
+    this._cache.ventes.push(record);
+
+    if (this._serverAvailable) {
+      fetch(`${this._BASE}/ventes`, {
+        method: 'POST',
+        headers: this._headers(),
+        body: JSON.stringify(record)
+      })
+      .then(r => {
+        if (!r.ok) return r.json().then(d => Promise.reject(d.error || 'Erreur serveur'));
+        return r.json();
+      })
+      .then(serverRecord => {
+        // Remplacer l'entrée locale par la version serveur (valeurs calculées côté DB)
+        const idx = this._cache.ventes.findIndex(v => v.id === record.id);
+        if (idx !== -1) {
+          this._cache.ventes[idx] = serverRecord;
+          try { localStorage.setItem('bp_ventes', JSON.stringify(this._cache.ventes)); } catch {}
+        }
+      })
+      .catch(errMsg => {
+        // Supprimer l'entrée optimiste si le serveur rejette (ex: stock insuffisant)
+        this._cache.ventes = this._cache.ventes.filter(v => v.id !== record.id);
+        try { localStorage.setItem('bp_ventes', JSON.stringify(this._cache.ventes)); } catch {}
+        if (typeof errMsg === 'string') toast(`❌ ${errMsg}`, 'error');
+        if (typeof renderVentes === 'function') renderVentes();
+      });
+    } else {
+      this._enqueue({ method: 'POST', table: 'ventes', data: record });
+      this._saveLocal('ventes');
+    }
+    return record;
   }
 };
 
@@ -973,9 +1011,8 @@ function saveVente() {
   if (qty <= 0) { toast('Quantité invalide.', 'error'); return; }
 
   const stockItem = DB.getAll('stock').find(s => s.nom === produit);
-  const gain = round((pv - pa) * qty);
 
-  // Calculer le stock restant dynamiquement (ventes + défectueux non résolus)
+  // Vérification préliminaire côté client (UX uniquement — le serveur recalcule en transaction)
   const toutesVentes   = DB.getAll('ventes');
   const tousDefect     = DB.getAll('defectueux');
   const totalDejaVendu = toutesVentes
@@ -992,15 +1029,17 @@ function saveVente() {
     toast(`Stock insuffisant. Disponible : ${stockAvant}`, 'error'); return;
   }
 
-  const record = { date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres };
+  // gain/stockAvant/stockApres envoyés comme valeurs optimistes (le serveur les recalcule)
+  const gain = round((pv - pa) * qty);
+  const stockId = stockItem ? stockItem.id : null;
+  const record = { date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres, stockId };
 
   if (EDIT.venteId) {
-    DB.update('ventes', EDIT.venteId, record);
+    DB.update('ventes', EDIT.venteId, { date, produit, qty, pa, pv, gain, vendeur, stockId });
     toast('Vente modifiée avec succès.');
   } else {
-    DB.insert('ventes', record);
-    const who = AUTH.displayName();
-    const stockInfo = stockAvant !== null ? ` | Stock : ${stockAvant} → ${stockApres}` : '';
+    DB.insertVente(record);
+    const stockInfo = ` | Stock : ${stockAvant} → ${stockApres}`;
     toast(`✅ Vente enregistrée — ${produit}${stockInfo}`, 'success');
   }
 

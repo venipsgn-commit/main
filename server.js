@@ -20,7 +20,7 @@ const ALLOWED_TABLES = new Set(['stock', 'ventes', 'vendeurs', 'charges', 'dette
 
 const TABLE_COLS = {
   stock:       ['nom', 'pa', 'pv', 'qtyInitial', 'createdAt', 'updatedAt'],
-  ventes:      ['date', 'produit', 'qty', 'pa', 'pv', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'createdAt', 'updatedAt'],
+  ventes:      ['date', 'produit', 'qty', 'pa', 'pv', 'gain', 'vendeur', 'stockAvant', 'stockApres', 'stockId', 'createdAt', 'updatedAt'],
   vendeurs:    ['nom', 'createdAt', 'updatedAt'],
   charges:     ['date', 'type', 'montant', 'desc', 'categorie', 'createdAt', 'updatedAt'],
   dettes:      ['nom', 'type', 'montant', 'date', 'statut', 'createdAt', 'updatedAt'],
@@ -162,9 +162,13 @@ db.exec(`
 
 // ── Migration colonnes ajoutées ───────────────────────────────────────────────
 (function migrateColumns() {
-  const cols = db.prepare("PRAGMA table_info(charges)").all().map(r => r.name);
-  if (!cols.includes('categorie')) {
+  const chargesCols = db.prepare("PRAGMA table_info(charges)").all().map(r => r.name);
+  if (!chargesCols.includes('categorie')) {
     db.prepare("ALTER TABLE charges ADD COLUMN categorie TEXT NOT NULL DEFAULT 'Boutique'").run();
+  }
+  const ventesCols = db.prepare("PRAGMA table_info(ventes)").all().map(r => r.name);
+  if (!ventesCols.includes('stockId')) {
+    db.prepare("ALTER TABLE ventes ADD COLUMN stockId INTEGER").run();
   }
 })();
 
@@ -330,6 +334,63 @@ function addLog(username, action, tableName, recordId, details) {
     }
   } catch {}
 }
+
+// ── POST /api/ventes (transaction atomique, calcul serveur) ──────────────────
+app.post('/api/ventes', apiLimiter, requireAuth, requireWriteAccess, (req, res) => {
+  const body = req.body;
+  const err = VALIDATORS.ventes(body);
+  if (err) return res.status(400).json({ error: err });
+
+  const id  = body.id || (Date.now() * 1000 + Math.floor(Math.random() * 999));
+  const qty = Number(body.qty);
+  const pv  = Number(body.pv);
+  const pa  = body.pa !== undefined ? Number(body.pa) : null;
+  const { date, produit, vendeur } = body;
+
+  const doInsert = db.transaction(() => {
+    // Lire le stock et calculer le disponible de façon atomique
+    const stockItem   = db.prepare('SELECT * FROM stock WHERE nom = ?').get(produit);
+    const qtyInitial  = stockItem ? (stockItem.qtyInitial || 0) : 0;
+    const totalVendu  = db.prepare(
+      'SELECT COALESCE(SUM(qty), 0) AS s FROM ventes WHERE produit = ?'
+    ).get(produit).s;
+    const totalDefect = db.prepare(
+      "SELECT COALESCE(SUM(qty), 0) AS s FROM defectueux WHERE produit = ? AND statut != 'Résolu'"
+    ).get(produit).s;
+
+    const stockAvant = qtyInitial - totalVendu - totalDefect;
+    const stockApres = stockAvant - qty;
+
+    if (stockApres < 0) {
+      const e = new Error(`Stock insuffisant. Disponible : ${stockAvant}`);
+      e.statusCode = 400;
+      throw e;
+    }
+
+    const realPa    = pa !== null ? pa : (stockItem ? stockItem.pa : 0);
+    const gain      = Math.round(((pv - realPa) * qty) * 100) / 100;
+    const stockId   = stockItem ? stockItem.id : null;
+    const createdAt = body.createdAt || new Date().toISOString();
+
+    const record = { id, date, produit, qty, pa: realPa, pv, gain,
+                     vendeur: vendeur || null, stockAvant, stockApres, stockId, createdAt };
+
+    db.prepare(`INSERT OR REPLACE INTO ventes
+      (id, date, produit, qty, pa, pv, gain, vendeur, stockAvant, stockApres, stockId, createdAt)
+      VALUES (@id, @date, @produit, @qty, @pa, @pv, @gain, @vendeur, @stockAvant, @stockApres, @stockId, @createdAt)
+    `).run(record);
+
+    return record;
+  });
+
+  try {
+    const record = doInsert();
+    addLog(req.username, 'AJOUT', 'ventes', record.id, JSON.stringify(record).slice(0, 200));
+    res.status(201).json(record);
+  } catch (e) {
+    res.status(e.statusCode || 400).json({ error: e.message });
+  }
+});
 
 // ── POST /api/:table ──────────────────────────────────────────────────────────
 app.post('/api/:table', apiLimiter, requireAuth, requireWriteAccess, (req, res) => {

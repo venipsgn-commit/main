@@ -3304,17 +3304,43 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
   }
 
   if (nouveauStatut === 'Reçue' && ancienStatut !== 'Reçue') {
-    // Ajouter la quantité reçue au qtyInitial du produit en stock
-    const stockItem = DB.getAll('stock').find(p => p.nom === produit);
-    if (stockItem) {
-      const nouvelleQty = (stockItem.qtyInitial || 0) + qte;
-      DB.update('stock', stockItem.id, { qtyInitial: nouvelleQty });
-      toast(`✅ Commande reçue — Stock de "${produit}" mis à jour (+${qte})`, 'success', 4000);
+    // Le serveur met à jour le stock en DB (route PUT /api/commandes/:id spécialisée)
+    // On recharge le stock depuis le serveur pour avoir la vraie valeur persistée
+    toast(`✅ Commande reçue — Stock de "${produit}" mis à jour (+${qte})`, 'success', 4000);
+    if (DB._serverAvailable) {
+      fetch(`${DB._BASE}/stock`, { headers: DB._headers() })
+        .then(r => r.json())
+        .then(rows => {
+          if (Array.isArray(rows)) {
+            DB._cache.stock = rows;
+            try { localStorage.setItem('bp_stock', JSON.stringify(rows)); } catch {}
+          }
+          renderStock();
+          renderDashboard();
+        })
+        .catch(() => { renderStock(); renderDashboard(); });
     } else {
-      toast('Commande marquée reçue (produit introuvable en stock)', 'warning');
+      // Hors ligne : mise à jour optimiste du cache local
+      const stockItem = DB.getAll('stock').find(p => p.nom === produit);
+      if (stockItem) DB.update('stock', stockItem.id, { qtyInitial: (stockItem.qtyInitial || 0) + qte });
+      renderStock();
+      renderDashboard();
     }
-    renderStock();
-    renderDashboard();
+  } else if (ancienStatut === 'Reçue' && nouveauStatut !== 'Reçue') {
+    // Annulation d'une commande reçue → recharger le stock
+    toast('Statut modifié — stock recalculé', 'warning');
+    if (DB._serverAvailable) {
+      fetch(`${DB._BASE}/stock`, { headers: DB._headers() })
+        .then(r => r.json())
+        .then(rows => {
+          if (Array.isArray(rows)) {
+            DB._cache.stock = rows;
+            try { localStorage.setItem('bp_stock', JSON.stringify(rows)); } catch {}
+          }
+          renderStock();
+          renderDashboard();
+        }).catch(() => {});
+    }
   } else {
     toast(_editCommandeId ? 'Commande modifiée' : 'Commande ajoutée', 'success');
   }

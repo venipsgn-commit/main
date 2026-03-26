@@ -603,6 +603,56 @@ app.post('/api/:table', apiLimiter, requireAuth, requireWriteAccess, (req, res) 
   }
 });
 
+// ── PUT /api/commandes/:id (spécialisé : mise à jour stock si statut → Reçue) ─
+app.put('/api/commandes/:id', apiLimiter, requireAuth, requireWriteAccess, (req, res) => {
+  const id      = Number(req.params.id);
+  const updates = req.body;
+  const cols    = TABLE_COLS['commandes'];
+  const setCols = cols.filter(c => updates[c] !== undefined);
+  if (setCols.length === 0) return res.status(400).json({ error: 'Rien à mettre à jour' });
+
+  try {
+    const doUpdate = db.transaction(() => {
+      const ancienne = db.prepare('SELECT * FROM commandes WHERE id = ?').get(id);
+      if (!ancienne) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+
+      // Mise à jour de la commande
+      db.prepare(
+        `UPDATE commandes SET ${setCols.map(c => `${c} = @${c}`).join(', ')} WHERE id = @_id`
+      ).run({ ...updates, _id: id });
+
+      // Si le statut passe à "Reçue" pour la première fois → incrémenter le stock
+      if (updates.statut === 'Reçue' && ancienne.statut !== 'Reçue') {
+        const qte     = ancienne.qte || 0;
+        const produit = ancienne.produit;
+        const stock   = db.prepare('SELECT * FROM stock WHERE nom = ?').get(produit);
+        if (stock && qte > 0) {
+          db.prepare('UPDATE stock SET qtyInitial = qtyInitial + ? WHERE nom = ?').run(qte, produit);
+        }
+      }
+
+      // Si le statut revient de "Reçue" vers autre chose → décrémenter le stock
+      if (ancienne.statut === 'Reçue' && updates.statut && updates.statut !== 'Reçue') {
+        const qte     = ancienne.qte || 0;
+        const produit = ancienne.produit;
+        const stock   = db.prepare('SELECT * FROM stock WHERE nom = ?').get(produit);
+        if (stock && qte > 0) {
+          const newQty = Math.max(0, (stock.qtyInitial || 0) - qte);
+          db.prepare('UPDATE stock SET qtyInitial = ? WHERE nom = ?').run(newQty, produit);
+        }
+      }
+
+      return db.prepare('SELECT * FROM commandes WHERE id = ?').get(id);
+    });
+
+    const updated = doUpdate();
+    addLog(req.username, 'MODIFICATION', 'commandes', id, JSON.stringify(updates).slice(0, 200));
+    res.json(updated);
+  } catch (e) {
+    res.status(e.statusCode || 400).json({ error: e.message });
+  }
+});
+
 // ── PUT /api/:table/:id ───────────────────────────────────────────────────────
 app.put('/api/:table/:id', apiLimiter, requireAuth, requireWriteAccess, (req, res) => {
   const { table, id } = req.params;

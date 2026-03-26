@@ -118,6 +118,7 @@
         </div>
       </div>
 
+      <button class="btn-theme-toggle mobile-search-btn" id="mobileSearchBtn" title="Rechercher">🔍</button>
       <button class="btn-theme-toggle" id="btnBackup" title="Télécharger backup" onclick="downloadBackup()" style="display:none">💾</button>
       <button class="btn-theme-toggle" id="themeToggle" title="Mode sombre / clair">🌙</button>
       <div class="topbar-user" id="topbarUserBadge">
@@ -992,6 +993,20 @@
 <!-- Toast -->
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- Mobile Search Overlay -->
+<div class="mobile-search-overlay" id="mobileSearchOverlay">
+  <div class="mobile-search-bar">
+    <input type="text" id="mobileSearchInput" class="mobile-search-input" placeholder="Rechercher..." autocomplete="off" />
+    <button class="mobile-search-close" id="mobileSearchClose">✕</button>
+  </div>
+  <div class="mobile-search-results" id="mobileSearchResults"></div>
+</div>
+
 <script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
 </body>
 </html>

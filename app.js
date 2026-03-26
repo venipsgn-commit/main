@@ -151,6 +151,44 @@ const DB = {
   _cache: { stock: [], ventes: [], vendeurs: [], charges: [], dettes: [], defectueux: [] },
   _BASE: '/api',
   _serverAvailable: false,
+  _QUEUE_KEY: 'venips_offline_queue',
+
+  _enqueue(op) {
+    const q = this._getQueue();
+    q.push({ ...op, ts: Date.now() });
+    try { localStorage.setItem(this._QUEUE_KEY, JSON.stringify(q)); } catch {}
+  },
+
+  _getQueue() {
+    try { return JSON.parse(localStorage.getItem(this._QUEUE_KEY) || '[]'); } catch { return []; }
+  },
+
+  async _replayQueue() {
+    const q = this._getQueue();
+    if (q.length === 0) return;
+    const failed = [];
+    for (const op of q) {
+      try {
+        let ok = false;
+        if (op.method === 'POST') {
+          const r = await fetch(`${this._BASE}/${op.table}`, { method: 'POST', headers: this._headers(), body: JSON.stringify(op.data) });
+          ok = r.ok;
+        } else if (op.method === 'PUT') {
+          const r = await fetch(`${this._BASE}/${op.table}/${op.id}`, { method: 'PUT', headers: this._headers(), body: JSON.stringify(op.data) });
+          ok = r.ok;
+        } else if (op.method === 'DELETE') {
+          const r = await fetch(`${this._BASE}/${op.table}/${op.id}`, { method: 'DELETE', headers: this._headers() });
+          ok = r.ok;
+        }
+        if (!ok) failed.push(op);
+      } catch { failed.push(op); }
+    }
+    try { localStorage.setItem(this._QUEUE_KEY, JSON.stringify(failed)); } catch {}
+    if (failed.length < q.length) {
+      const synced = q.length - failed.length;
+      toast(`✅ ${synced} opération(s) synchronisée(s)`, 'success');
+    }
+  },
 
   _headers(extra) {
     return { 'Content-Type': 'application/json', 'x-venips-token': AUTH.getToken(), ...extra };
@@ -185,6 +223,8 @@ const DB = {
       return;
     }
     if (this._serverAvailable) {
+      // Rejouer les opérations en attente (écrites hors ligne)
+      await this._replayQueue();
       if (!localStorage.getItem('venips_migrated')) {
         for (const table of tables) {
           let localData = [];
@@ -230,6 +270,7 @@ const DB = {
         body: JSON.stringify(record)
       }).catch(() => {});
     } else {
+      this._enqueue({ method: 'POST', table, data: record });
       this._saveLocal(table);
     }
     return record;
@@ -246,6 +287,7 @@ const DB = {
           body: JSON.stringify(updates)
         }).catch(() => {});
       } else {
+        this._enqueue({ method: 'PUT', table, id, data: updates });
         this._saveLocal(table);
       }
       return this._cache[table][idx];
@@ -258,6 +300,7 @@ const DB = {
     if (this._serverAvailable) {
       fetch(`${this._BASE}/${table}/${id}`, { method: 'DELETE', headers: this._headers() }).catch(() => {});
     } else {
+      this._enqueue({ method: 'DELETE', table, id });
       this._saveLocal(table);
     }
   },
@@ -2468,6 +2511,127 @@ function renderNotifications() {
     sessionStorage.setItem(shownKey, '1');
   }
 }
+
+// ============================================
+// RECHERCHE MOBILE (overlay)
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+  const mobileSearchBtn     = document.getElementById('mobileSearchBtn');
+  const mobileSearchOverlay = document.getElementById('mobileSearchOverlay');
+  const mobileSearchClose   = document.getElementById('mobileSearchClose');
+  const mobileSearchInput   = document.getElementById('mobileSearchInput');
+  const mobileSearchResults = document.getElementById('mobileSearchResults');
+
+  if (!mobileSearchBtn || !mobileSearchOverlay) return;
+
+  function openMobileSearch() {
+    mobileSearchOverlay.classList.add('open');
+    mobileSearchInput.value = '';
+    mobileSearchResults.innerHTML = '';
+    setTimeout(() => mobileSearchInput.focus(), 50);
+  }
+
+  function closeMobileSearch() {
+    mobileSearchOverlay.classList.remove('open');
+  }
+
+  mobileSearchBtn.addEventListener('click', openMobileSearch);
+  mobileSearchClose.addEventListener('click', closeMobileSearch);
+
+  mobileSearchInput.addEventListener('input', debounce(() => {
+    const q = mobileSearchInput.value.trim().toLowerCase();
+    if (q.length < 2) { mobileSearchResults.innerHTML = ''; return; }
+
+    const results = [];
+    const add = (label, icon, page, sub) => results.push({ label, icon, page, sub });
+    DB.getAll('stock').filter(p => p.nom.toLowerCase().includes(q))
+      .forEach(p => add(p.nom, '📦', 'stock', `Prix vente: ${fmt(p.pv)}`));
+    DB.getAll('ventes').filter(v => v.produit.toLowerCase().includes(q) || (v.vendeur||'').toLowerCase().includes(q))
+      .slice(0, 5).forEach(v => add(v.produit, '🛒', 'ventes', `${formatDate(v.date)} – ${fmt(v.pv * v.qty)}`));
+    DB.getAll('dettes').filter(d => d.nom.toLowerCase().includes(q))
+      .forEach(d => add(d.nom, '🤝', 'dettes', `${fmt(d.montant)} – ${d.statut}`));
+    DB.getAll('charges').filter(c => (c.desc||'').toLowerCase().includes(q) || (c.type||'').toLowerCase().includes(q))
+      .slice(0, 5).forEach(c => add(c.type || c.desc, '💸', 'charges', `${formatDate(c.date)} – ${fmt(c.montant)}`));
+    DB.getAll('defectueux').filter(d => d.produit.toLowerCase().includes(q) || (d.probleme||'').toLowerCase().includes(q))
+      .forEach(d => add(d.produit, '⚠️', 'defectueux', d.probleme));
+
+    if (results.length === 0) {
+      mobileSearchResults.innerHTML = `<div class="search-no-result">Aucun résultat pour "${escHtml(q)}"</div>`;
+    } else {
+      mobileSearchResults.innerHTML = results.slice(0, 10).map((r, i) => `
+        <div class="search-result-item" data-page="${r.page}" data-idx="${i}">
+          <span class="search-result-icon">${r.icon}</span>
+          <div class="search-result-text">
+            <div class="search-result-label">${escHtml(r.label)}</div>
+            <div class="search-result-sub">${escHtml(r.sub)}</div>
+          </div>
+        </div>`).join('');
+      mobileSearchResults.querySelectorAll('.search-result-item').forEach(el => {
+        el.addEventListener('click', () => {
+          navigateTo(el.dataset.page);
+          closeMobileSearch();
+        });
+      });
+    }
+  }, 250));
+
+  // Fermer sur Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && mobileSearchOverlay.classList.contains('open')) closeMobileSearch();
+  });
+});
+
+// ============================================
+// SWIPE SIDEBAR (touch events)
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (!sidebar || !overlay) return;
+
+  let startX = 0;
+  let startY = 0;
+  let isDragging = false;
+
+  function openSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+  }
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+  }
+
+  document.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    isDragging = false;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    const dx = e.touches[0].clientX - startX;
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    // Seulement si le swipe est plutôt horizontal
+    if (Math.abs(dx) > dy && Math.abs(dx) > 10) isDragging = true;
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    const isSmall = window.innerWidth <= 768;
+    if (!isSmall) return;
+
+    // Swipe right depuis le bord gauche (≤40px) → ouvrir
+    if (dx > 60 && startX < 40 && !sidebar.classList.contains('open')) {
+      openSidebar();
+    }
+    // Swipe left sur sidebar ouverte → fermer
+    if (dx < -60 && sidebar.classList.contains('open')) {
+      closeSidebar();
+    }
+    isDragging = false;
+  }, { passive: true });
+});
 
 // Toggle dropdown notifications
 document.addEventListener('DOMContentLoaded', () => {

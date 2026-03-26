@@ -1714,3 +1714,62 @@ body.dark .vendeur-tag { background: #3b1e7a; color: #c4b5fd; }
     transition-duration: .01ms !important;
   }
 }
+
+/* ============================================
+   RECHERCHE MOBILE (overlay plein écran)
+   ============================================ */
+.mobile-search-btn { display: none; }
+
+.mobile-search-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--white);
+  z-index: 9000;
+  flex-direction: column;
+  padding: 12px;
+}
+.mobile-search-overlay.open { display: flex; }
+
+.mobile-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.mobile-search-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 1rem;
+  color: var(--dark);
+}
+.mobile-search-input:focus { outline: none; border-color: var(--primary); }
+.mobile-search-close {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+}
+.mobile-search-close:hover { background: var(--bg); }
+
+.mobile-search-results {
+  flex: 1;
+  overflow-y: auto;
+}
+.mobile-search-results .search-result-item {
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+}
+
+body.dark .mobile-search-overlay { background: var(--white); }
+body.dark .mobile-search-input { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+
+@media (max-width: 768px) {
+  .mobile-search-btn { display: flex; }
+}

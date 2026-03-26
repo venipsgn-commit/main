@@ -358,6 +358,10 @@ body {
   display: none;
   padding: 24px;
   animation: fadeIn .25s ease;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 .page.active { display: block; }
 
@@ -997,10 +1001,12 @@ body {
 
   /* ---- Filtres ---- */
   .filters-bar {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 8px;
     margin-bottom: 12px;
     width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
     overflow: hidden;
   }
@@ -1009,6 +1015,14 @@ body {
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type="month"].filter-input {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    max-width: 100%;
   }
   .filter-input { min-height: 42px; font-size: .9rem; }
 

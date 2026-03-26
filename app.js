@@ -265,7 +265,8 @@ const DB = {
   // Étape 1 (sync, instantané) : charger localStorage → zéro délai, pas de page blanche
   loadFromStorage() {
     const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
-                    'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires'];
+                    'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires',
+                    'objectifs_perso'];
     tables.forEach(t => {
       try { this._cache[t] = JSON.parse(localStorage.getItem('bp_' + t) || '[]'); } catch { this._cache[t] = []; }
     });
@@ -274,7 +275,8 @@ const DB = {
   // Étape 2 (async) : contacter le serveur et rafraîchir le cache
   async fetchFromServer() {
     const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
-                    'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires'];
+                    'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires',
+                    'objectifs_perso'];
     try {
       const test = await fetch(`${this._BASE}/stock`, {
         headers: this._headers(),
@@ -595,8 +597,9 @@ const pageTitles = {
   commandes:    'Commandes Fournisseurs',
   objectifs:    'Objectifs CA',
   retours:      'Retours Produits',
-  inventaires:  'Inventaires',
-  historique:   'Historique des Modifications'
+  inventaires:     'Inventaires',
+  objectifs_perso: 'Mes Objectifs Personnels',
+  historique:      'Historique des Modifications'
 };
 
 function navigateTo(page) {
@@ -624,8 +627,9 @@ function navigateTo(page) {
   if (page === 'commandes')   renderCommandes();
   if (page === 'objectifs')   renderObjectifs();
   if (page === 'retours')     renderRetours();
-  if (page === 'inventaires') renderInventaires();
-  if (page === 'historique')  renderHistorique();
+  if (page === 'inventaires')    renderInventaires();
+  if (page === 'objectifs_perso') renderObjectifsPerso();
+  if (page === 'historique')     renderHistorique();
 }
 
 // ============================================
@@ -3743,4 +3747,205 @@ document.getElementById('saveInventaire')?.addEventListener('click', async () =>
 
 function deleteInventaire(id) {
   confirmDelete('inventaires', id, 'cet inventaire');
+}
+
+// ============================================
+// OBJECTIFS PERSONNELS
+// ============================================
+let _editObjPersoId = null;
+
+const OBJP_CATEGORIES = ['Personnel', 'Professionnel', 'Financier', 'Santé', 'Famille', 'Autre'];
+const OBJP_EMOJIS = {
+  'Personnel': '🙋', 'Professionnel': '💼', 'Financier': '💰',
+  'Santé': '💪', 'Famille': '👨‍👩‍👧', 'Autre': '🎯'
+};
+
+function renderObjectifsPerso() {
+  const all      = DB.getAll('objectifs_perso');
+  const annee    = document.getElementById('filterObjPersoAnnee')?.value || '';
+  const statut   = document.getElementById('filterObjPersoStatut')?.value || '';
+  const categorie = document.getElementById('filterObjPersoCategorie')?.value || '';
+
+  // Remplir le sélecteur d'années
+  const anneesSel = document.getElementById('filterObjPersoAnnee');
+  if (anneesSel && anneesSel.options.length <= 1) {
+    const annees = [...new Set(all.map(o => o.annee))].sort((a, b) => b - a);
+    annees.forEach(a => {
+      if (![...anneesSel.options].some(o => o.value == a)) {
+        const opt = document.createElement('option');
+        opt.value = a; opt.textContent = a;
+        anneesSel.appendChild(opt);
+      }
+    });
+  }
+
+  let list = all;
+  if (annee)    list = list.filter(o => String(o.annee) === annee);
+  if (statut)   list = list.filter(o => o.statut === statut);
+  if (categorie) list = list.filter(o => o.categorie === categorie);
+  list = [...list].sort((a, b) => {
+    // En cours en premier, puis Atteint, puis Abandonné
+    const order = { 'En cours': 0, 'Atteint': 1, 'Abandonné': 2 };
+    return (order[a.statut] ?? 3) - (order[b.statut] ?? 3) || b.annee - a.annee;
+  });
+
+  // Stats rapides
+  const statsEl = document.getElementById('objPersoStats');
+  if (statsEl) {
+    const total    = all.length;
+    const atteints = all.filter(o => o.statut === 'Atteint').length;
+    const enCours  = all.filter(o => o.statut === 'En cours').length;
+    const pct      = total > 0 ? Math.round((atteints / total) * 100) : 0;
+    statsEl.innerHTML = `
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-body"><div class="kpi-label">Atteints</div><div class="kpi-value">${atteints}</div></div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🔄</div><div class="kpi-body"><div class="kpi-label">En cours</div><div class="kpi-value">${enCours}</div></div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">📊</div><div class="kpi-body"><div class="kpi-label">Taux de réussite</div><div class="kpi-value">${pct}%</div></div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🌟</div><div class="kpi-body"><div class="kpi-label">Total objectifs</div><div class="kpi-value">${total}</div></div></div>
+    `;
+  }
+
+  const listEl = document.getElementById('objPersoList');
+  if (!listEl) return;
+  if (!list.length) {
+    listEl.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">🌟</div><p>Aucun objectif pour le moment</p><p style="font-size:.85rem;color:var(--muted)">Ajoute tes premiers objectifs !</p></div></div>`;
+    return;
+  }
+
+  // Grouper par année
+  const parAnnee = {};
+  list.forEach(o => { (parAnnee[o.annee] = parAnnee[o.annee] || []).push(o); });
+
+  listEl.innerHTML = Object.entries(parAnnee)
+    .sort(([a], [b]) => b - a)
+    .map(([year, items]) => {
+      const nbAtteints = items.filter(o => o.statut === 'Atteint').length;
+      const pctAnnee   = items.length > 0 ? Math.round((nbAtteints / items.length) * 100) : 0;
+      const barColor   = pctAnnee === 100 ? '#22c55e' : pctAnnee >= 50 ? '#f59e0b' : '#3b82f6';
+      return `
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <h3 style="margin:0">📅 ${year}</h3>
+            <div style="display:flex;align-items:center;gap:10px;min-width:200px">
+              <div style="flex:1;background:var(--border);border-radius:99px;height:8px;overflow:hidden">
+                <div style="width:${pctAnnee}%;height:100%;background:${barColor};border-radius:99px;transition:width .4s"></div>
+              </div>
+              <span style="font-size:.85rem;color:var(--muted);white-space:nowrap">${nbAtteints}/${items.length} atteints</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding:8px 0">
+            ${items.map(o => _renderObjPersoCard(o)).join('')}
+          </div>
+        </div>`;
+    }).join('');
+}
+
+function _renderObjPersoCard(o) {
+  const isAtteint   = o.statut === 'Atteint';
+  const isAbandonne = o.statut === 'Abandonné';
+  const emoji       = OBJP_EMOJIS[o.categorie] || '🎯';
+  const bgColor     = isAtteint ? 'rgba(34,197,94,.08)' : isAbandonne ? 'rgba(107,114,128,.08)' : 'var(--card)';
+  const borderColor = isAtteint ? '#22c55e' : isAbandonne ? 'var(--border)' : 'var(--primary)';
+  const dateAtteinte = o.dateAtteinte ? ` · Atteint le ${o.dateAtteinte}` : '';
+
+  return `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:${bgColor};border-left:3px solid ${borderColor};border-radius:8px">
+      <button onclick="toggleObjPerso(${o.id})"
+        title="${isAtteint ? 'Marquer comme En cours' : 'Marquer comme Atteint'}"
+        style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:2px solid ${isAtteint ? '#22c55e' : 'var(--border)'};background:${isAtteint ? '#22c55e' : 'transparent'};cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">
+        ${isAtteint ? '✓' : ''}
+      </button>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:.75rem;background:var(--bg);padding:2px 8px;border-radius:99px;color:var(--muted)">${emoji} ${o.categorie}</span>
+          ${isAtteint ? `<span class="badge badge-success">✅ Atteint${dateAtteinte}</span>` : ''}
+          ${isAbandonne ? `<span class="badge badge-danger">Abandonné</span>` : ''}
+        </div>
+        <p style="margin:6px 0 2px;font-weight:600;${isAtteint ? 'text-decoration:line-through;opacity:.7' : ''}">${o.titre}</p>
+        ${o.description ? `<p style="margin:0;font-size:.85rem;color:var(--muted)">${o.description}</p>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        ${!isAtteint && !isAbandonne ? `<button class="btn btn-sm btn-secondary" onclick="abandonObjPerso(${o.id})" title="Abandonner">✕</button>` : ''}
+        <button class="btn btn-sm btn-secondary" onclick="openEditObjPerso(${o.id})" title="Modifier">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteObjPerso(${o.id})" title="Supprimer">🗑️</button>
+      </div>
+    </div>`;
+}
+
+document.getElementById('filterObjPersoAnnee')?.addEventListener('change', renderObjectifsPerso);
+document.getElementById('filterObjPersoStatut')?.addEventListener('change', renderObjectifsPerso);
+document.getElementById('filterObjPersoCategorie')?.addEventListener('change', renderObjectifsPerso);
+
+function openAddObjectifPerso() {
+  _editObjPersoId = null;
+  document.getElementById('modalObjPersoTitle').textContent = 'Nouvel Objectif';
+  document.getElementById('objp-titre').value       = '';
+  document.getElementById('objp-annee').value       = new Date().getFullYear();
+  document.getElementById('objp-categorie').value   = 'Personnel';
+  document.getElementById('objp-description').value = '';
+  showModal('modalObjectifPerso');
+}
+
+function openEditObjPerso(id) {
+  const o = DB.getAll('objectifs_perso').find(x => x.id === id);
+  if (!o) return;
+  _editObjPersoId = id;
+  document.getElementById('modalObjPersoTitle').textContent = 'Modifier Objectif';
+  document.getElementById('objp-titre').value       = o.titre       || '';
+  document.getElementById('objp-annee').value       = o.annee       || new Date().getFullYear();
+  document.getElementById('objp-categorie').value   = o.categorie   || 'Personnel';
+  document.getElementById('objp-description').value = o.description || '';
+  showModal('modalObjectifPerso');
+}
+
+document.getElementById('saveObjectifPerso')?.addEventListener('click', () => {
+  const titre = document.getElementById('objp-titre').value.trim();
+  const annee = Number(document.getElementById('objp-annee').value);
+  if (!titre) { toast('Titre requis', 'error'); return; }
+  if (!annee || annee < 2000) { toast('Année invalide', 'error'); return; }
+  const record = {
+    titre,
+    annee,
+    categorie:   document.getElementById('objp-categorie').value,
+    description: document.getElementById('objp-description').value.trim() || null,
+    statut:      _editObjPersoId ? (DB.getAll('objectifs_perso').find(x => x.id === _editObjPersoId)?.statut || 'En cours') : 'En cours',
+    createdAt:   new Date().toISOString()
+  };
+  if (_editObjPersoId) {
+    DB.update('objectifs_perso', _editObjPersoId, record);
+    toast('Objectif modifié', 'success');
+  } else {
+    DB.insert('objectifs_perso', record);
+    toast('Objectif ajouté ! Bonne chance 💪', 'success');
+  }
+  hideModal('modalObjectifPerso');
+  // Rafraîchir le sélecteur d'années
+  const sel = document.getElementById('filterObjPersoAnnee');
+  if (sel) sel.innerHTML = '<option value="">Toutes les années</option>';
+  renderObjectifsPerso();
+});
+
+function toggleObjPerso(id) {
+  const o = DB.getAll('objectifs_perso').find(x => x.id === id);
+  if (!o) return;
+  if (o.statut === 'Atteint') {
+    // Remettre En cours
+    DB.update('objectifs_perso', id, { statut: 'En cours', dateAtteinte: null });
+    toast('Objectif remis en cours', 'info');
+  } else {
+    // Marquer Atteint
+    const today = new Date().toISOString().slice(0, 10);
+    DB.update('objectifs_perso', id, { statut: 'Atteint', dateAtteinte: today });
+    toast('🎉 Félicitations ! Objectif atteint !', 'success', 4000);
+  }
+  renderObjectifsPerso();
+}
+
+function abandonObjPerso(id) {
+  DB.update('objectifs_perso', id, { statut: 'Abandonné' });
+  toast('Objectif abandonné', 'warning');
+  renderObjectifsPerso();
+}
+
+function deleteObjPerso(id) {
+  confirmDelete('objectifs_perso', id, 'cet objectif');
 }

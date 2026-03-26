@@ -59,6 +59,9 @@
     <li class="nav-item nav-admin-only" data-page="inventaires">
       <span class="nav-icon">🔍</span><span class="nav-label">Inventaires</span>
     </li>
+    <li class="nav-item" data-page="objectifs_perso">
+      <span class="nav-icon">🌟</span><span class="nav-label">Mes Objectifs</span>
+    </li>
     <li class="nav-item" data-page="chatbot">
       <span class="nav-icon">🤖</span><span class="nav-label">Assistant IA</span>
     </li>
@@ -852,6 +855,45 @@
     </div>
   </section>
 
+  <!-- PAGE: OBJECTIFS PERSONNELS -->
+  <section class="page" id="page-objectifs_perso">
+    <div class="page-header">
+      <div>
+        <h2>🌟 Mes Objectifs Personnels</h2>
+        <p class="page-subtitle">Tes buts par année — coche quand tu les atteins !</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddObjectifPerso()">+ Nouvel Objectif</button>
+    </div>
+
+    <!-- Filtre par année -->
+    <div class="filters-bar">
+      <select id="filterObjPersoAnnee" class="filter-input">
+        <option value="">Toutes les années</option>
+      </select>
+      <select id="filterObjPersoStatut" class="filter-input">
+        <option value="">Tous les statuts</option>
+        <option value="En cours">En cours</option>
+        <option value="Atteint">Atteint ✅</option>
+        <option value="Abandonné">Abandonné</option>
+      </select>
+      <select id="filterObjPersoCategorie" class="filter-input">
+        <option value="">Toutes les catégories</option>
+        <option value="Personnel">Personnel</option>
+        <option value="Professionnel">Professionnel</option>
+        <option value="Financier">Financier</option>
+        <option value="Santé">Santé</option>
+        <option value="Famille">Famille</option>
+        <option value="Autre">Autre</option>
+      </select>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="kpi-grid" id="objPersoStats" style="margin-bottom:16px"></div>
+
+    <!-- Liste des objectifs -->
+    <div id="objPersoList"></div>
+  </section>
+
   <!-- PAGE: HISTORIQUE (admin) -->
   <section class="page" id="page-historique">
     <div class="page-header">
@@ -1436,6 +1478,47 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" data-modal="modalInventaire">Annuler</button>
       <button class="btn btn-primary" id="saveInventaire">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Objectif Personnel -->
+<div class="modal-overlay" id="modalObjectifPerso">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalObjPersoTitle">Nouvel Objectif</h3>
+      <button class="modal-close" data-modal="modalObjectifPerso">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Objectif *</label>
+          <input type="text" id="objp-titre" placeholder="Ex: Acheter une voiture, Épargner 5M GNF…" required />
+        </div>
+        <div class="form-group">
+          <label>Année *</label>
+          <input type="number" id="objp-annee" min="2020" max="2100" />
+        </div>
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select id="objp-categorie">
+            <option value="Personnel">Personnel</option>
+            <option value="Professionnel">Professionnel</option>
+            <option value="Financier">Financier</option>
+            <option value="Santé">Santé</option>
+            <option value="Famille">Famille</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Description / Plan d'action</label>
+          <textarea id="objp-description" rows="3" placeholder="Comment tu vas atteindre cet objectif…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalObjectifPerso">Annuler</button>
+      <button class="btn btn-primary" id="saveObjectifPerso">Enregistrer</button>
     </div>
   </div>
 </div>

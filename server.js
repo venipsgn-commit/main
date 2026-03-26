@@ -19,7 +19,8 @@ db.pragma('foreign_keys = ON');
 // ── Whitelist et colonnes par table ───────────────────────────────────────────
 const ALLOWED_TABLES = new Set([
   'stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
-  'fournisseurs', 'commandes', 'objectifs', 'clients', 'retours', 'inventaires'
+  'fournisseurs', 'commandes', 'objectifs', 'clients', 'retours', 'inventaires',
+  'objectifs_perso'
 ]);
 
 const TABLE_COLS = {
@@ -34,7 +35,8 @@ const TABLE_COLS = {
   objectifs:    ['periode', 'vendeur', 'cibleCA', 'createdAt', 'updatedAt'],
   clients:      ['nom', 'telephone', 'email', 'adresse', 'notes', 'createdAt', 'updatedAt'],
   retours:      ['date', 'venteId', 'produit', 'qte', 'raison', 'type', 'statut', 'montant', 'createdAt', 'updatedAt'],
-  inventaires:  ['date', 'produit', 'stockId', 'qteTheorique', 'qteReelle', 'ecart', 'notes', 'createdAt', 'updatedAt'],
+  inventaires:     ['date', 'produit', 'stockId', 'qteTheorique', 'qteReelle', 'ecart', 'notes', 'createdAt', 'updatedAt'],
+  objectifs_perso: ['titre', 'description', 'annee', 'categorie', 'statut', 'dateAtteinte', 'createdAt', 'updatedAt'],
 };
 
 // Règles de validation par table
@@ -114,6 +116,13 @@ const VALIDATORS = {
   inventaires: (b) => {
     if (!b.date || !/^\d{4}-\d{2}-\d{2}/.test(b.date)) return 'Date invalide';
     if (!b.produit || typeof b.produit !== 'string' || b.produit.trim().length === 0) return 'Produit requis';
+    return null;
+  },
+  objectifs_perso: (b) => {
+    if (!b.titre || typeof b.titre !== 'string' || b.titre.trim().length === 0) return 'Titre requis';
+    if (b.titre.length > 200) return 'Titre trop long (max 200 caractères)';
+    if (b.annee !== undefined && (isNaN(b.annee) || b.annee < 2000 || b.annee > 2100)) return 'Année invalide';
+    if (b.statut && !['En cours', 'Atteint', 'Abandonné'].includes(b.statut)) return 'Statut invalide';
     return null;
   },
 };
@@ -285,6 +294,20 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
   CREATE INDEX IF NOT EXISTS idx_logs_username  ON logs(username);
+
+  CREATE TABLE IF NOT EXISTS objectifs_perso (
+    id           INTEGER PRIMARY KEY,
+    titre        TEXT    NOT NULL,
+    description  TEXT,
+    annee        INTEGER NOT NULL DEFAULT 2025,
+    categorie    TEXT    NOT NULL DEFAULT 'Personnel',
+    statut       TEXT    NOT NULL DEFAULT 'En cours',
+    dateAtteinte TEXT,
+    createdAt    TEXT,
+    updatedAt    TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_objectifs_perso_annee   ON objectifs_perso(annee);
+  CREATE INDEX IF NOT EXISTS idx_objectifs_perso_statut  ON objectifs_perso(statut);
 `);
 
 // ── Migration colonnes ajoutées ───────────────────────────────────────────────

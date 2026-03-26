@@ -5,6 +5,7 @@ require('dotenv').config();
 const express      = require('express');
 const Database     = require('better-sqlite3');
 const path         = require('path');
+const fs           = require('fs');
 const crypto       = require('crypto');
 const helmet       = require('helmet');
 const rateLimit    = require('express-rate-limit');
@@ -209,6 +210,33 @@ db.exec(`
 })();
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Vérifie un mot de passe contre un hash stocké.
+ * Formats supportés :
+ *   - "scrypt:HASH_HEX:SALT_HEX"  → comparaison sécurisée scrypt
+ *   - plaintext                    → comparaison constante (legacy)
+ */
+function verifyPassword(input, stored) {
+  if (stored.startsWith('scrypt:')) {
+    const parts = stored.split(':');
+    if (parts.length !== 3) return false;
+    const hashBuf = Buffer.from(parts[1], 'hex');
+    const saltBuf = Buffer.from(parts[2], 'hex');
+    try {
+      const derived = crypto.scryptSync(input, saltBuf, 64);
+      return crypto.timingSafeEqual(derived, hashBuf);
+    } catch { return false; }
+  }
+  // Legacy plaintext : comparaison en temps constant pour éviter timing attacks
+  try {
+    const a = Buffer.alloc(128); const b = Buffer.alloc(128);
+    Buffer.from(input).copy(a);
+    Buffer.from(stored).copy(b);
+    return crypto.timingSafeEqual(a, b) && input.length === stored.length;
+  } catch { return false; }
+}
+
 function loadUsers() {
   const raw = process.env.VENIPS_USERS || 'VENIPS:venips224@,JACOB:compilateur787';
   return raw.split(',').map(entry => {
@@ -318,7 +346,7 @@ const apiLimiter = rateLimit({
 app.post('/api/auth', authLimiter, (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'Champs requis' });
-  const user = USERS.find(u => u.username === username && u.password === password);
+  const user = USERS.find(u => u.username === username && verifyPassword(password, u.password));
   if (!user) return res.status(401).json({ error: 'Identifiants incorrects' });
   res.json({ token: makeToken(username) });
 });
@@ -570,8 +598,97 @@ app.get('/api/backup/download', apiLimiter, requireAuth, requireAdmin, (req, res
   res.send(json);
 });
 
+// ── Sauvegarde automatique ────────────────────────────────────────────────────
+const BACKUP_DIR = path.join(__dirname, 'backups');
+const BACKUP_MAX = parseInt(process.env.BACKUP_KEEP || '7');
+
+function runBackup() {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const date = new Date().toISOString().slice(0, 10);
+    const dest = path.join(BACKUP_DIR, `venips-${date}.db`);
+    db.backup(dest).then(() => {
+      console.log(`💾  Backup : ${dest}`);
+      // Garder seulement les N derniers backups
+      const files = fs.readdirSync(BACKUP_DIR)
+        .filter(f => f.match(/^venips-\d{4}-\d{2}-\d{2}\.db$/))
+        .sort();
+      files.slice(0, Math.max(0, files.length - BACKUP_MAX))
+        .forEach(f => { try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch {} });
+    }).catch(e => console.error('Backup failed:', e.message));
+  } catch (e) {
+    console.error('Backup error:', e.message);
+  }
+}
+
+// ── Route rapport mensuel ─────────────────────────────────────────────────────
+app.get('/api/rapport/:year/:month', apiLimiter, requireAuth, requireAdmin, (req, res) => {
+  const { year, month } = req.params;
+  const ym = `${year}-${month.padStart(2, '0')}`;
+  const ymPrev = (() => {
+    const d = new Date(`${year}-${month}-01`);
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 7);
+  })();
+
+  const ventes     = db.prepare('SELECT * FROM ventes').all();
+  const stock      = db.prepare('SELECT * FROM stock').all();
+  const charges    = db.prepare('SELECT * FROM charges').all();
+  const dettes     = db.prepare('SELECT * FROM dettes').all();
+  const defectueux = db.prepare('SELECT * FROM defectueux').all();
+
+  const ventesMois = ventes.filter(v => v.date && v.date.startsWith(ym));
+  const ventesPrev = ventes.filter(v => v.date && v.date.startsWith(ymPrev));
+  const chargesMois = charges.filter(c => c.date && c.date.startsWith(ym));
+
+  const ca    = ventesMois.reduce((s, v) => s + (v.pv * v.qty), 0);
+  const gain  = ventesMois.reduce((s, v) => s + (v.gain || 0), 0);
+  const caPrev  = ventesPrev.reduce((s, v) => s + (v.pv * v.qty), 0);
+  const gainPrev = ventesPrev.reduce((s, v) => s + (v.gain || 0), 0);
+  const chargesTotal = chargesMois.reduce((s, c) => s + (c.montant || 0), 0);
+  const benefice = gain - chargesTotal;
+
+  // Top produits
+  const prodMap = {};
+  ventesMois.forEach(v => {
+    if (!prodMap[v.produit]) prodMap[v.produit] = { qty: 0, ca: 0, gain: 0 };
+    prodMap[v.produit].qty  += v.qty || 0;
+    prodMap[v.produit].ca   += (v.pv * v.qty) || 0;
+    prodMap[v.produit].gain += v.gain || 0;
+  });
+  const topProduits = Object.entries(prodMap)
+    .sort((a, b) => b[1].ca - a[1].ca).slice(0, 5);
+
+  // Vendeurs
+  const vendMap = {};
+  ventesMois.forEach(v => {
+    const k = v.vendeur || 'Inconnu';
+    if (!vendMap[k]) vendMap[k] = { qty: 0, ca: 0 };
+    vendMap[k].qty += v.qty || 0;
+    vendMap[k].ca  += (v.pv * v.qty) || 0;
+  });
+
+  // Ruptures
+  const ruptures = stock.filter(p => {
+    const vendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+    const def   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
+    return Math.max(0, (p.qtyInitial || 0) - vendu - def) === 0;
+  });
+
+  res.json({
+    periode: ym, ca, gain, caPrev, gainPrev, chargesTotal, benefice,
+    nbVentes: ventesMois.length, topProduits, vendeurs: Object.entries(vendMap),
+    ruptures: ruptures.map(p => p.nom),
+    dettesImpayees: dettes.filter(d => d.statut === 'Non payé').length,
+    defEnAttente: defectueux.filter(d => d.statut === 'En attente').length,
+  });
+});
+
 // ── Démarrage ─────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅  VENIPS – serveur démarré sur http://localhost:${PORT}`);
+  // Backup au démarrage puis toutes les 24h
+  runBackup();
+  setInterval(runBackup, 24 * 60 * 60 * 1000);
 });

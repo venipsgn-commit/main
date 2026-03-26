@@ -134,8 +134,13 @@
   <!-- PAGE: DASHBOARD -->
   <section class="page" id="page-dashboard">
     <div class="page-header">
-      <h2>Tableau de Bord</h2>
-      <p>Vue d'ensemble de votre boutique</p>
+      <div>
+        <h2>Tableau de Bord</h2>
+        <p class="page-subtitle">Vue d'ensemble de votre boutique</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap;">
+        <button class="btn btn-secondary btn-sm" id="btnRapport" onclick="openRapportMensuel()">📄 Rapport mensuel</button>
+      </div>
     </div>
 
     <!-- KPI Cards -->

@@ -421,14 +421,14 @@ function changePage(table, dir) {
   if (table === 'defectueux') renderDefectueux();
 }
 
-function toast(msg, type = 'success') {
+function toast(msg, type = 'success', duration = 3500) {
   const tc = document.getElementById('toastContainer');
   const t = document.createElement('div');
   t.className = `toast ${type}`;
-  const icons = { success: '✓', error: '✕', warning: '⚠' };
+  const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
   t.innerHTML = `<span>${icons[type] || '•'}</span><span>${msg}</span>`;
   tc.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
+  setTimeout(() => t.remove(), duration);
 }
 
 function showModal(id) {
@@ -2179,6 +2179,145 @@ async function downloadBackup() {
 }
 
 // ============================================
+// RAPPORT MENSUEL
+// ============================================
+async function openRapportMensuel() {
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const ym    = `${year}-${month}`;
+  const moisFr = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][now.getMonth()];
+
+  let data;
+  if (DB._serverAvailable) {
+    try {
+      const r = await fetch(`/api/rapport/${year}/${month}`, { headers: DB._headers() });
+      if (r.ok) data = await r.json();
+    } catch {}
+  }
+
+  // Fallback client-side si serveur indisponible
+  if (!data) {
+    const ventes   = DB.getAll('ventes');
+    const charges  = DB.getAll('charges');
+    const dettes   = DB.getAll('dettes');
+    const defect   = DB.getAll('defectueux');
+    const stock    = DB.getAll('stock');
+    const ventesMois   = ventes.filter(v => v.date && v.date.startsWith(ym));
+    const chargesMois  = charges.filter(c => c.date && c.date.startsWith(ym));
+    const ca    = ventesMois.reduce((s, v) => s + (v.pv * v.qty), 0);
+    const gain  = ventesMois.reduce((s, v) => s + (v.gain || 0), 0);
+    const chargesTotal = chargesMois.reduce((s, c) => s + (c.montant || 0), 0);
+    const prodMap = {};
+    ventesMois.forEach(v => {
+      if (!prodMap[v.produit]) prodMap[v.produit] = { qty: 0, ca: 0, gain: 0 };
+      prodMap[v.produit].qty += v.qty || 0; prodMap[v.produit].ca += v.pv * v.qty; prodMap[v.produit].gain += v.gain || 0;
+    });
+    data = {
+      periode: ym, ca, gain, caPrev: 0, gainPrev: 0, chargesTotal, benefice: gain - chargesTotal,
+      nbVentes: ventesMois.length,
+      topProduits: Object.entries(prodMap).sort((a,b)=>b[1].ca-a[1].ca).slice(0,5),
+      vendeurs: [], ruptures: [], dettesImpayees: dettes.filter(d=>d.statut==='Non payé').length,
+      defEnAttente: defect.filter(d=>d.statut==='En attente').length,
+    };
+  }
+
+  const f = n => new Intl.NumberFormat('fr-FR').format(Math.round(n||0)) + ' GNF';
+  const pct = (a, b) => b ? ((a - b) / b * 100).toFixed(1) : '—';
+  const arrow = (a, b) => a >= b ? '▲' : '▼';
+  const col   = (a, b) => a >= b ? '#10b981' : '#ef4444';
+
+  const topRows = data.topProduits.map(([nom, d]) =>
+    `<tr><td>${escHtml(nom)}</td><td style="text-align:center">${d.qty}</td><td style="text-align:right">${f(d.ca)}</td><td style="text-align:right;color:#10b981">${f(d.gain)}</td></tr>`
+  ).join('') || '<tr><td colspan="4" style="color:#999;text-align:center">Aucune vente ce mois</td></tr>';
+
+  const vendRows = data.vendeurs.map(([nom, d]) =>
+    `<tr><td>${escHtml(nom)}</td><td style="text-align:center">${d.qty}</td><td style="text-align:right">${f(d.ca)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="color:#999;text-align:center">—</td></tr>';
+
+  const html = `<!DOCTYPE html><html lang="fr"><head>
+<meta charset="UTF-8"><title>Rapport ${moisFr} ${year}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;padding:32px;color:#1e293b;background:#fff;max-width:800px;margin:auto}
+  h1{font-size:1.6rem;margin-bottom:4px;color:#003530}
+  .subtitle{color:#64748b;margin-bottom:28px;font-size:.95rem}
+  .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+  .kpi{background:#f8fafc;border-radius:10px;padding:16px;border-left:4px solid #00d4c4}
+  .kpi label{font-size:.75rem;color:#64748b;display:block;margin-bottom:4px}
+  .kpi strong{font-size:1.15rem;color:#1e293b}
+  .kpi .delta{font-size:.78rem;margin-top:4px}
+  .section{margin-bottom:24px}
+  h2{font-size:1.05rem;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+  table{width:100%;border-collapse:collapse;font-size:.875rem}
+  th{background:#f1f5f9;padding:8px 12px;text-align:left;font-weight:600;color:#475569}
+  td{padding:8px 12px;border-bottom:1px solid #e2e8f0}
+  .alerts{display:flex;flex-wrap:wrap;gap:8px}
+  .alert{padding:6px 12px;border-radius:6px;font-size:.82rem;font-weight:600}
+  .alert-warn{background:#fef3c7;color:#92400e}
+  .alert-ok{background:#d1fae5;color:#065f46}
+  footer{margin-top:32px;text-align:center;color:#94a3b8;font-size:.78rem;border-top:1px solid #e2e8f0;padding-top:16px}
+  @media print{button{display:none}}
+</style>
+</head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+  <div>
+    <h1>📊 Rapport Mensuel — ${moisFr} ${year}</h1>
+    <p class="subtitle">Généré le ${new Date().toLocaleDateString('fr-FR')} · VENIPS Gestion Commerciale</p>
+  </div>
+  <button onclick="window.print()" style="padding:8px 16px;background:#00d4c4;border:none;border-radius:8px;cursor:pointer;font-weight:600;color:#fff">🖨️ Imprimer</button>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi" style="border-color:#00d4c4">
+    <label>Chiffre d'Affaires</label>
+    <strong>${f(data.ca)}</strong>
+    ${data.caPrev ? `<div class="delta" style="color:${col(data.ca,data.caPrev)}">${arrow(data.ca,data.caPrev)} ${Math.abs(pct(data.ca,data.caPrev))}% vs mois préc.</div>` : ''}
+  </div>
+  <div class="kpi" style="border-color:#10b981">
+    <label>Gain Net</label>
+    <strong style="color:#10b981">${f(data.gain)}</strong>
+    ${data.gainPrev ? `<div class="delta" style="color:${col(data.gain,data.gainPrev)}">${arrow(data.gain,data.gainPrev)} ${Math.abs(pct(data.gain,data.gainPrev))}% vs mois préc.</div>` : ''}
+  </div>
+  <div class="kpi" style="border-color:#6366f1">
+    <label>Bénéfice Net</label>
+    <strong style="color:${data.benefice>=0?'#10b981':'#ef4444'}">${f(data.benefice)}</strong>
+    <div style="font-size:.75rem;color:#64748b;margin-top:2px">Charges : ${f(data.chargesTotal)}</div>
+  </div>
+</div>
+
+<div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpi" style="border-color:#f59e0b"><label>Ventes</label><strong>${data.nbVentes}</strong></div>
+  <div class="kpi" style="border-color:#ef4444"><label>Ruptures stock</label><strong>${data.ruptures.length}</strong></div>
+  <div class="kpi" style="border-color:#f59e0b"><label>Dettes impayées</label><strong>${data.dettesImpayees}</strong></div>
+  <div class="kpi" style="border-color:#8b5cf6"><label>Défectueux</label><strong>${data.defEnAttente}</strong></div>
+</div>
+
+<div class="section">
+  <h2>🏆 Top 5 Produits</h2>
+  <table><thead><tr><th>Produit</th><th style="text-align:center">Qté</th><th style="text-align:right">CA</th><th style="text-align:right">Gain</th></tr></thead>
+  <tbody>${topRows}</tbody></table>
+</div>
+
+${data.vendeurs.length ? `<div class="section">
+  <h2>👨‍💼 Performance Vendeurs</h2>
+  <table><thead><tr><th>Vendeur</th><th style="text-align:center">Qté</th><th style="text-align:right">CA</th></tr></thead>
+  <tbody>${vendRows}</tbody></table>
+</div>` : ''}
+
+${data.ruptures.length ? `<div class="section">
+  <h2>⚠️ Produits en Rupture</h2>
+  <div class="alerts">${data.ruptures.map(n=>`<span class="alert alert-warn">🔴 ${escHtml(n)}</span>`).join('')}</div>
+</div>` : ''}
+
+<footer>VENIPS · Rapport ${moisFr} ${year} · ${new Date().toLocaleString('fr-FR')}</footer>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=850,height=750');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
+// ============================================
 // DATE DISPLAY
 // ============================================
 function updateDateDisplay() {
@@ -2742,6 +2881,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     isDragging = false;
   }, { passive: true });
+});
+
+// ============================================
+// RACCOURCIS CLAVIER
+// ============================================
+document.addEventListener('keydown', e => {
+  if (!AUTH.isLoggedIn()) return;
+  // Ignorer si focus dans un input/textarea/select
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  // Ignorer si un modal est ouvert
+  if (document.querySelector('.modal-overlay.open')) return;
+
+  const page = sessionStorage.getItem('venips_last_page');
+
+  switch (e.key) {
+    case 'n': case 'N':
+      if (page === 'ventes' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        document.getElementById('btnAddVente')?.click();
+      } else if (page === 'stock' && AUTH.isAdmin() && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        document.getElementById('btnAddStock')?.click();
+      }
+      break;
+    case '1': navigateTo('dashboard'); break;
+    case '2': navigateTo('ventes');    break;
+    case '3': navigateTo('stock');     break;
+    case '?':
+      toast('Raccourcis : N = Nouveau · 1=Dashboard · 2=Ventes · 3=Stock', 'info', 4000);
+      break;
+  }
 });
 
 // Toggle dropdown notifications

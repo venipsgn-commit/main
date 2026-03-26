@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test tests/api.test.js",
+    "hash-password": "node hash-password.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",

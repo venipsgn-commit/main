@@ -572,9 +572,10 @@ body {
 /* ============================================
    TABLES
    ============================================ */
-/* Masquer Stock Avant / Stock Après sur desktop (colonne 4 et 5 de la table ventes) */
-#ventesTable th:nth-child(4), #ventesTable td:nth-child(4),
-#ventesTable th:nth-child(5), #ventesTable td:nth-child(5) { display: none; }
+/* Ventes table : colonne Stock masquée sur petit desktop */
+@media (max-width: 860px) {
+  #ventesTable th:nth-child(6), #ventesTable td:nth-child(6) { display: none; }
+}
 
 .table-wrap { overflow-x: auto; }
 .data-table {
@@ -880,9 +881,8 @@ body {
   /* Table compacte sur tablette */
   .data-table th,
   .data-table td { padding: 8px 10px; font-size: .8rem; }
-  /* Masquer Stock Avant / Stock Après sur tablette pour libérer de la place */
-  #ventesTable th:nth-child(4), #ventesTable td:nth-child(4),
-  #ventesTable th:nth-child(5), #ventesTable td:nth-child(5) { display: none; }
+  /* Ventes : masquer colonne Stock sur tablette */
+  #ventesTable th:nth-child(6), #ventesTable td:nth-child(6) { display: none; }
 
 
   /* Comparaison */
@@ -1006,7 +1006,7 @@ body {
   }
   /* Ligne Actions : boutons côte à côte, pleine largeur */
   .data-table td[data-label="Actions"] {
-    justify-content: stretch;
+    justify-content: flex-end;
     gap: 8px;
     padding: 10px 14px;
     flex-wrap: wrap;
@@ -1023,7 +1023,14 @@ body {
     flex: 0 0 auto;
     min-height: 38px;
     min-width: 38px;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    font-size: 1.1rem;
+  }
+  .data-table td[data-label="Actions"] .action-btns {
+    flex: 1;
+    justify-content: flex-end;
   }
   /* Empty state */
   .data-table tr:has(.empty-state) { border: none; box-shadow: none; background: transparent; }
@@ -1463,7 +1470,6 @@ body.dark .vendeur-tag { background: #3b1e7a; color: #c4b5fd; }
 .vente-date {
   font-size: .85rem;
   color: var(--muted);
-  white-space: nowrap;
 }
 
 /* Action buttons */
@@ -1480,9 +1486,21 @@ body.dark .vendeur-tag { background: #3b1e7a; color: #c4b5fd; }
   .ventes-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) {
-  .ventes-stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .vente-stat-card { padding: 12px 14px; gap: 10px; }
-  .vente-stat-value { font-size: 1rem; }
+  .ventes-stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .vente-stat-card { padding: 10px 12px; gap: 8px; }
+  .vente-stat-icon { font-size: 1.3rem; }
+  .vente-stat-value { font-size: .9rem; word-break: break-all; }
+  .vente-stat-label { font-size: .7rem; }
+
+  /* Gain badge : pas de débordement en mode carte */
+  .gain-badge { white-space: normal; word-break: break-word; font-size: .78rem; padding: 2px 7px; }
+
+  /* Action buttons en mode carte : icônes plus grandes */
+  .action-btns { gap: 6px; flex-wrap: wrap; }
+  .action-btns .btn-icon { font-size: 1.1rem; padding: 6px 8px; min-width: 36px; min-height: 36px; }
+
+  /* Stock cell : permettre retour à la ligne */
+  .data-table td[data-label="Stock"] { flex-wrap: wrap; }
 }
 
 /* ============================================

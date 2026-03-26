@@ -489,6 +489,32 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// ── Génération du fichier offline-creds.json au démarrage ────────────────────
+// Permet la connexion hors-ligne sans jamais avoir été connecté avant
+(function generateOfflineCreds() {
+  try {
+    const creds = {};
+    for (const u of USERS) {
+      // Extraire le mot de passe réel (sans le préfixe scrypt: si présent)
+      let rawPassword = u.password;
+      if (rawPassword.startsWith('scrypt:')) {
+        // Pour les mots de passe scrypt, on ne peut pas dériver le raw → skip
+        // Ils devront se connecter au moins une fois en ligne
+        continue;
+      }
+      const hash = crypto.createHash('sha256').update(rawPassword).digest('hex');
+      creds[u.username] = hash;
+    }
+    fs.writeFileSync(
+      path.join(__dirname, 'offline-creds.json'),
+      JSON.stringify(creds),
+      'utf8'
+    );
+  } catch (e) {
+    console.warn('⚠️  offline-creds.json non généré :', e.message);
+  }
+})();
+
 // ── POST /api/auth ────────────────────────────────────────────────────────────
 app.post('/api/auth', authLimiter, (req, res) => {
   const { username, password } = req.body || {};

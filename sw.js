@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'venips-v1';
+const CACHE_NAME = 'venips-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   '/app.js',
   '/manifest.json',
   '/logo.svg',
+  '/offline-creds.json',
 ];
 
 // ── Installation : mise en cache des assets statiques ──────────────────────

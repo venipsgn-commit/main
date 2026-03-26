@@ -28,10 +28,22 @@ const AUTH = {
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
   },
 
+  // Charger offline-creds.json (généré par le serveur) dans localStorage
+  async seedOfflineCreds() {
+    try {
+      const r = await fetch('/offline-creds.json', { signal: AbortSignal.timeout(3000) });
+      if (!r.ok) return;
+      const fresh = await r.json();
+      // Fusionner : les hashes issus de vraies connexions (plus fiables) ont priorité
+      const existing = JSON.parse(localStorage.getItem(this.OFFLINE_KEY) || '{}');
+      localStorage.setItem(this.OFFLINE_KEY, JSON.stringify({ ...fresh, ...existing }));
+    } catch {}
+  },
+
   // Sauvegarder les credentials hachés après une connexion serveur réussie
   async _saveOfflineCreds(username, password) {
     try {
-      const hash = await this._hash(password);
+      const hash  = await this._hash(password);
       const creds = JSON.parse(localStorage.getItem(this.OFFLINE_KEY) || '{}');
       creds[username] = hash;
       localStorage.setItem(this.OFFLINE_KEY, JSON.stringify(creds));
@@ -41,6 +53,8 @@ const AUTH = {
   // Vérifier en mode offline via le hash stocké
   async _verifyOffline(username, password) {
     try {
+      // Tenter de charger depuis le cache Service Worker (fonctionne sans réseau)
+      await this.seedOfflineCreds();
       const creds = JSON.parse(localStorage.getItem(this.OFFLINE_KEY) || '{}');
       if (!creds[username]) return false;
       const hash = await this._hash(password);
@@ -138,6 +152,9 @@ const AUTH = {
   }
 
   if (AUTH.isLoggedIn()) { showApp(); } else { showLogin(); }
+
+  // Pré-charger les credentials offline dès l'ouverture (même sans login)
+  AUTH.seedOfflineCreds();
 
   eyeBtn.addEventListener('click', () => {
     const isPass = passEl.type === 'password';

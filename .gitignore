@@ -3,3 +3,4 @@ venips.db
 venips.db-shm
 venips.db-wal
 .env
+backups/

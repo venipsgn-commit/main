@@ -414,8 +414,16 @@ function renderDashboard() {
   const totalGain       = ventes.reduce((s, v) => s + v.gain, 0);
   const totalQty        = ventes.reduce((s, v) => s + v.qty, 0);
   const totalCharges    = charges.reduce((s, c) => s + c.montant, 0);
-  const totalStockItems = stock.reduce((s, p) => s + p.qty, 0);
-  const ruptures        = stock.filter(p => p.qty === 0).length;
+  const totalStockItems = stock.reduce((s, p) => {
+    const vendu = ventes.filter(v => v.produit === p.nom).reduce((t, v) => t + (v.qty || 0), 0);
+    const def   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((t, d) => t + (d.qty || 0), 0);
+    return s + Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - vendu - def);
+  }, 0);
+  const ruptures = stock.filter(p => {
+    const vendu = ventes.filter(v => v.produit === p.nom).reduce((t, v) => t + (v.qty || 0), 0);
+    const def   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((t, d) => t + (d.qty || 0), 0);
+    return Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - vendu - def) === 0;
+  }).length;
   const totalDefectueux = defectueux.filter(d => d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
   const today30 = new Date(); today30.setDate(today30.getDate() - 30);
   const dettesRetard = dettes.filter(d => d.statut === 'Non payé' && new Date(d.date) < today30).length;
@@ -599,55 +607,91 @@ function renderChart(canvasId, labels, data, label, color, existing, setter) {
 
 function renderVentes() {
   let ventes = DB.getAll('ventes');
-  const monthFilter = document.getElementById('filterVenteMonth').value;
-  const searchFilter = document.getElementById('filterVenteSearch').value.toLowerCase();
+  const monthFilter   = document.getElementById('filterVenteMonth').value;
+  const searchFilter  = document.getElementById('filterVenteSearch').value.toLowerCase();
+  const vendeurFilter = document.getElementById('filterVenteVendeur')?.value || '';
 
-  if (monthFilter) ventes = ventes.filter(v => ym(v.date) === monthFilter);
-  if (searchFilter) ventes = ventes.filter(v =>
-    v.produit.toLowerCase().includes(searchFilter) ||
-    (v.vendeur || '').toLowerCase().includes(searchFilter)
-  );
+  // Remplir le select vendeurs
+  const vendeurSel = document.getElementById('filterVenteVendeur');
+  if (vendeurSel) {
+    const vendeurs = [...new Set(DB.getAll('ventes').map(v => v.vendeur).filter(Boolean))].sort();
+    const curVal = vendeurSel.value;
+    vendeurSel.innerHTML = '<option value="">Tous les vendeurs</option>' +
+      vendeurs.map(v => `<option value="${escHtml(v)}" ${v === curVal ? 'selected' : ''}>${escHtml(v)}</option>`).join('');
+  }
+
+  if (monthFilter)   ventes = ventes.filter(v => ym(v.date) === monthFilter);
+  if (searchFilter)  ventes = ventes.filter(v => v.produit.toLowerCase().includes(searchFilter));
+  if (vendeurFilter) ventes = ventes.filter(v => (v.vendeur || '') === vendeurFilter);
 
   ventes.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const totalCA = ventes.reduce((s, v) => s + round(v.pv * v.qty), 0);
-  const totalGain = ventes.reduce((s, v) => s + v.gain, 0);
-  const totalQty = ventes.reduce((s, v) => s + v.qty, 0);
+  // Stats
+  const totalCA   = ventes.reduce((s, v) => s + round(v.pv * v.qty), 0);
+  const totalGain = ventes.reduce((s, v) => s + (v.gain || 0), 0);
+  const totalQty  = ventes.reduce((s, v) => s + (v.qty || 0), 0);
 
-  document.getElementById('vente-ca-filtered').textContent = fmt(totalCA);
-  document.getElementById('vente-gain-filtered').textContent = fmt(totalGain);
-  document.getElementById('vente-qty-filtered').textContent = fmtNum(totalQty);
+  document.getElementById('vente-ca-filtered').textContent    = fmt(totalCA);
+  document.getElementById('vente-gain-filtered').textContent  = fmt(totalGain);
+  document.getElementById('vente-qty-filtered').textContent   = fmtNum(totalQty);
+  const countEl = document.getElementById('vente-count-filtered');
+  if (countEl) countEl.textContent = fmtNum(ventes.length);
 
-  const tbody = document.getElementById('ventesBody');
+  const tbody   = document.getElementById('ventesBody');
   const paginEl = document.getElementById('ventesPageBar');
+  const isAdmin = AUTH.isAdmin();
+
+  // Afficher/masquer colonne Vendeur pour admin uniquement
+  document.querySelectorAll('#ventesTable .col-admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
 
   if (ventes.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">🛒</div><p>Aucune vente trouvée</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">
+      <div class="empty-state">
+        <div class="empty-icon">🛒</div>
+        <p>Aucune vente trouvée</p>
+        <p style="font-size:.85rem;color:var(--muted);margin-top:4px;">Modifiez les filtres ou ajoutez une nouvelle vente</p>
+      </div></td></tr>`;
     if (paginEl) paginEl.innerHTML = '';
     return;
   }
 
   const { items, total, pages, page } = paginate(ventes, 'ventes');
   tbody.innerHTML = items.map(v => {
-    const stockAvant = v.stockAvant != null ? v.stockAvant : '—';
-    const stockApres = v.stockApres != null ? v.stockApres : '—';
-    const stockApresClass = v.stockApres === 0 ? 'style="color:#ef4444;font-weight:700;"' : v.stockApres <= 5 ? 'style="color:#f59e0b;font-weight:700;"' : '';
+    // Gain badge coloré
+    const gainClass = v.gain >= 0 ? 'gain-badge gain-badge-pos' : 'gain-badge gain-badge-neg';
+    const gainIcon  = v.gain >= 0 ? '▲' : '▼';
+
+    // Stock : affichage "avant → après" avec couleur
+    let stockCell = '—';
+    if (v.stockAvant != null && v.stockApres != null) {
+      const apresColor = v.stockApres === 0 ? '#ef4444' : v.stockApres <= 5 ? '#f59e0b' : '#10b981';
+      const apresIcon  = v.stockApres === 0 ? ' ⚠️' : '';
+      stockCell = `<span style="color:var(--muted)">${v.stockAvant}</span>
+        <span style="color:var(--muted);font-size:.8rem;margin:0 2px">→</span>
+        <span style="color:${apresColor};font-weight:700">${v.stockApres}${apresIcon}</span>`;
+    }
+
+    const canEdit = isAdmin || v.vendeur === AUTH.displayName();
     return `<tr>
-      <td data-label="Date">${formatDate(v.date)}</td>
-      <td data-label="Produit">${escHtml(v.produit)}</td>
-      <td data-label="Qté">${v.qty}</td>
-      <td data-label="Stock Avant">${stockAvant}</td>
-      <td data-label="Stock Après" ${stockApresClass}>${stockApres}${v.stockApres === 0 ? ' ⚠️' : ''}</td>
-      <td data-label="Prix Achat">${fmt(v.pa)}</td>
+      <td data-label="Date"><span class="vente-date">${formatDate(v.date)}</span></td>
+      <td data-label="Produit"><strong>${escHtml(v.produit)}</strong></td>
+      <td data-label="Qté"><span class="qty-badge">${v.qty}</span></td>
       <td data-label="Prix Vente">${fmt(v.pv)}</td>
-      <td data-label="Gain" class="${v.gain >= 0 ? 'gain-pos' : 'gain-neg'}">${fmt(v.gain)}</td>
-      <td data-label="Vendeur">${escHtml(v.vendeur || '—')}</td>
-      <td data-label="Actions" style="white-space:nowrap">
-        <button class="btn-icon" onclick="openRecuVente(${v.id})" title="Imprimer reçu">🖨️</button>
-        ${AUTH.isAdmin() || v.vendeur === AUTH.displayName() ? `
-        <button class="btn btn-sm btn-secondary" onclick="openEditVente(${v.id})">✏️</button>
-        <button class="btn btn-sm btn-danger" onclick="confirmDelete('ventes',${v.id},'la vente')" style="background:#ef4444;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.85rem;">🗑️ Supprimer</button>
-        ` : ''}
+      <td data-label="Gain"><span class="${gainClass}">${gainIcon} ${fmt(Math.abs(v.gain))}</span></td>
+      <td data-label="Stock">${stockCell}</td>
+      <td data-label="Vendeur" class="col-admin-only" style="${isAdmin ? '' : 'display:none'}">
+        <span class="vendeur-tag">${escHtml(v.vendeur || '—')}</span>
+      </td>
+      <td data-label="Actions">
+        <div class="action-btns">
+          <button class="btn-icon" onclick="openRecuVente(${v.id})" title="Imprimer reçu">🖨️</button>
+          ${canEdit ? `
+          <button class="btn-icon btn-icon-edit" onclick="openEditVente(${v.id})" title="Modifier">✏️</button>
+          <button class="btn-icon btn-icon-del" onclick="confirmDelete('ventes',${v.id},'la vente')" title="Supprimer">🗑️</button>
+          ` : ''}
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -2079,9 +2123,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Filtres Ventes
   document.getElementById('filterVenteMonth').addEventListener('change', renderVentes);
   document.getElementById('filterVenteSearch').addEventListener('input', debounce(renderVentes));
+  document.getElementById('filterVenteVendeur')?.addEventListener('change', renderVentes);
   document.getElementById('filterVenteReset').addEventListener('click', () => {
     document.getElementById('filterVenteMonth').value = '';
     document.getElementById('filterVenteSearch').value = '';
+    const vendeurSel = document.getElementById('filterVenteVendeur');
+    if (vendeurSel) vendeurSel.value = '';
     renderVentes();
   });
 
@@ -2325,3 +2372,38 @@ function globalSearch(query) {
     btn.addEventListener('click', () => sendMessage(btn.dataset.q));
   });
 })();
+
+// ============================================
+// NOTIFICATIONS (alertes stock + dettes)
+// ============================================
+function renderNotifications() {
+  if (!AUTH.isLoggedIn()) return;
+  const stock      = DB.getAll('stock');
+  const dettes     = DB.getAll('dettes');
+  const ventes     = DB.getAll('ventes');
+  const defectueux = DB.getAll('defectueux');
+
+  const alertes = [];
+
+  // Stock faible ou en rupture
+  stock.forEach(p => {
+    const totalVendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+    const totalDef   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
+    const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - totalVendu - totalDef);
+    if (restant === 0) alertes.push({ type: 'danger', msg: `Rupture de stock : ${p.nom}` });
+    else if (restant <= 5) alertes.push({ type: 'warning', msg: `Stock faible (${restant}) : ${p.nom}` });
+  });
+
+  // Dettes en retard (impayées depuis +30j)
+  const limit30 = new Date(); limit30.setDate(limit30.getDate() - 30);
+  dettes.filter(d => d.statut === 'Non payé' && d.date && new Date(d.date) < limit30)
+    .forEach(d => alertes.push({ type: 'warning', msg: `Dette en retard : ${d.nom} (${fmt(d.montant)})` }));
+
+  // Afficher les alertes critiques en toast (1 fois par session)
+  const shownKey = 'venips_notif_shown';
+  if (alertes.length > 0 && !sessionStorage.getItem(shownKey)) {
+    const critiques = alertes.filter(a => a.type === 'danger');
+    if (critiques.length > 0) toast(`⚠️ ${critiques.length} rupture(s) de stock détectée(s)`, 'warning');
+    sessionStorage.setItem(shownKey, '1');
+  }
+}

@@ -261,36 +261,71 @@
   <!-- PAGE: VENTES -->
   <section class="page" id="page-ventes">
     <div class="page-header">
-      <h2>Gestion des Ventes</h2>
+      <div>
+        <h2>Gestion des Ventes</h2>
+        <p class="page-subtitle">Suivi de toutes les transactions</p>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="exportCSV('ventes')">⬇ CSV</button>
-        <button class="btn btn-primary" id="btnAddVente">+ Nouvelle Vente</button>
+        <button class="btn btn-primary" id="btnAddVente">＋ Nouvelle Vente</button>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="ventes-stats-grid">
+      <div class="vente-stat-card green">
+        <div class="vente-stat-icon">💰</div>
+        <div class="vente-stat-body">
+          <div class="vente-stat-label">Chiffre d'Affaires</div>
+          <div class="vente-stat-value" id="vente-ca-filtered">0 GNF</div>
+        </div>
+      </div>
+      <div class="vente-stat-card teal">
+        <div class="vente-stat-icon">📈</div>
+        <div class="vente-stat-body">
+          <div class="vente-stat-label">Gain Total</div>
+          <div class="vente-stat-value" id="vente-gain-filtered">0 GNF</div>
+        </div>
+      </div>
+      <div class="vente-stat-card blue">
+        <div class="vente-stat-icon">🛒</div>
+        <div class="vente-stat-body">
+          <div class="vente-stat-label">Nombre de Ventes</div>
+          <div class="vente-stat-value" id="vente-count-filtered">0</div>
+        </div>
+      </div>
+      <div class="vente-stat-card purple">
+        <div class="vente-stat-icon">📦</div>
+        <div class="vente-stat-body">
+          <div class="vente-stat-label">Quantité Vendue</div>
+          <div class="vente-stat-value" id="vente-qty-filtered">0</div>
+        </div>
       </div>
     </div>
 
     <!-- Filters -->
     <div class="filters-bar">
       <input type="month" id="filterVenteMonth" class="filter-input" />
-      <input type="text" id="filterVenteSearch" class="filter-input" placeholder="Rechercher produit / vendeur..." />
-      <button class="btn btn-secondary" id="filterVenteReset">Réinitialiser</button>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="summary-row">
-      <div class="summary-card green"><span>CA Filtré</span><strong id="vente-ca-filtered">0 GNF</strong></div>
-      <div class="summary-card blue"><span>Gain Filtré</span><strong id="vente-gain-filtered">0 GNF</strong></div>
-      <div class="summary-card purple"><span>Qtés Vendues</span><strong id="vente-qty-filtered">0</strong></div>
+      <input type="text" id="filterVenteSearch" class="filter-input" placeholder="🔍 Produit..." />
+      <select id="filterVenteVendeur" class="filter-input">
+        <option value="">Tous les vendeurs</option>
+      </select>
+      <button class="btn btn-secondary" id="filterVenteReset">✕ Réinitialiser</button>
     </div>
 
     <div class="card">
       <div class="table-wrap">
-        <table class="data-table" id="ventesTable">
+        <table class="data-table ventes-table" id="ventesTable">
           <thead>
             <tr>
-              <th>Date</th><th>Produit</th><th>Qté</th>
-              <th>Stock Avant</th><th>Stock Après</th>
-              <th>Prix Achat</th><th>Prix Vente</th><th>Gain</th>
-              <th>Vendeur</th><th>Actions</th>
+              <th>Date</th>
+              <th>Produit</th>
+              <th>Qté</th>
+              <th>Prix Vente</th>
+              <th>Gain</th>
+              <th>Stock</th>
+              <th class="col-admin-only">Vendeur</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="ventesBody"></tbody>

@@ -386,6 +386,97 @@ app.delete('/api/:table/:id', apiLimiter, requireAuth, requireWriteAccess, (req,
   res.json({ ok: true });
 });
 
+// ── POST /api/chat ────────────────────────────────────────────────────────────
+app.post('/api/chat', apiLimiter, requireAuth, (req, res) => {
+  const { message } = req.body || {};
+  if (!message) return res.status(400).json({ error: 'Message requis' });
+  const q = message.toLowerCase();
+
+  // Données en temps réel
+  const ventes     = db.prepare('SELECT * FROM ventes').all();
+  const stock      = db.prepare('SELECT * FROM stock').all();
+  const charges    = db.prepare('SELECT * FROM charges').all();
+  const dettes     = db.prepare('SELECT * FROM dettes').all();
+  const defectueux = db.prepare('SELECT * FROM defectueux').all();
+
+  const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
+  const curYM = new Date().toISOString().slice(0, 7);
+
+  // KPIs globaux
+  const totalCA    = ventes.reduce((s, v) => s + (v.pv * v.qty), 0);
+  const totalGain  = ventes.reduce((s, v) => s + (v.gain || 0), 0);
+  const totalCharges = charges.reduce((s, c) => s + (c.montant || 0), 0);
+  const beneficeNet  = totalGain - totalCharges;
+  const venteMois    = ventes.filter(v => v.date && v.date.startsWith(curYM));
+  const caMois       = venteMois.reduce((s, v) => s + (v.pv * v.qty), 0);
+  const gainMois     = venteMois.reduce((s, v) => s + (v.gain || 0), 0);
+
+  // Top produits
+  const prodMap = {};
+  ventes.forEach(v => { prodMap[v.produit] = (prodMap[v.produit] || 0) + (v.pv * v.qty); });
+  const topProduits = Object.entries(prodMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  // Stock faible
+  const stockFaible = stock.filter(p => {
+    const vendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+    return Math.max(0, (p.qtyInitial || 0) - vendu) <= 5;
+  });
+
+  // Dettes impayées
+  const dettesImpayees = dettes.filter(d => d.statut === 'Non payé');
+  const totalDettes    = dettesImpayees.reduce((s, d) => s + (d.montant || 0), 0);
+
+  let reply = '';
+
+  if (q.includes('résumé') || q.includes('général') || q.includes('analyse') || q.includes('aperçu')) {
+    reply = `📊 Résumé de votre boutique :\n\n` +
+      `💰 CA total : ${fmt(totalCA)}\n` +
+      `📈 Gain total : ${fmt(totalGain)}\n` +
+      `💸 Charges totales : ${fmt(totalCharges)}\n` +
+      `✅ Bénéfice net : ${fmt(beneficeNet)}\n` +
+      `📅 CA ce mois : ${fmt(caMois)}\n` +
+      `📦 Produits en stock faible : ${stockFaible.length}\n` +
+      `🤝 Dettes impayées : ${fmt(totalDettes)}`;
+
+  } else if (q.includes('chiffre') || q.includes('ca') || q.includes("c'affaires")) {
+    reply = `💰 Chiffre d'affaires :\n• Total : ${fmt(totalCA)}\n• Ce mois (${curYM}) : ${fmt(caMois)}`;
+
+  } else if (q.includes('gain') || q.includes('bénéfice') || q.includes('profit')) {
+    reply = `📈 Gains :\n• Gain total : ${fmt(totalGain)}\n• Gain ce mois : ${fmt(gainMois)}\n• Charges : ${fmt(totalCharges)}\n• Bénéfice net : ${fmt(beneficeNet)}`;
+
+  } else if (q.includes('stock') || q.includes('rupture') || q.includes('produit')) {
+    const ruptures = stockFaible.filter(p => {
+      const vendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+      return Math.max(0, (p.qtyInitial || 0) - vendu) === 0;
+    });
+    reply = `📦 Stock :\n• Produits totaux : ${stock.length}\n• En rupture : ${ruptures.length}\n• Stock faible (≤5) : ${stockFaible.length}`;
+    if (stockFaible.length > 0) reply += `\n\n⚠️ À réapprovisionner :\n` + stockFaible.slice(0, 5).map(p => `• ${p.nom}`).join('\n');
+
+  } else if (q.includes('top') || q.includes('meilleur') || q.includes('rentable') || q.includes('populaire')) {
+    reply = `🏆 Top 5 produits par CA :\n` + topProduits.map((p, i) => `${i + 1}. ${p[0]} — ${fmt(p[1])}`).join('\n');
+
+  } else if (q.includes('dette') || q.includes('crédit')) {
+    reply = `🤝 Dettes :\n• Impayées : ${dettesImpayees.length} (${fmt(totalDettes)})\n• Payées : ${dettes.length - dettesImpayees.length}`;
+
+  } else if (q.includes('charge') || q.includes('dépense')) {
+    const chargesMois = charges.filter(c => c.date && c.date.startsWith(curYM)).reduce((s, c) => s + (c.montant || 0), 0);
+    reply = `💸 Charges :\n• Total : ${fmt(totalCharges)}\n• Ce mois : ${fmt(chargesMois)}`;
+
+  } else if (q.includes('défectueux') || q.includes('defectueux') || q.includes('problème')) {
+    const enCours = defectueux.filter(d => d.statut !== 'Résolu');
+    reply = `⚠️ Produits défectueux :\n• Total signalés : ${defectueux.length}\n• En cours : ${enCours.length}\n• Résolus : ${defectueux.length - enCours.length}`;
+
+  } else if (q.includes('vente') || q.includes('vendu')) {
+    const totalQty = ventes.reduce((s, v) => s + (v.qty || 0), 0);
+    reply = `🛒 Ventes :\n• Nombre total : ${ventes.length}\n• Quantité vendue : ${totalQty}\n• CA total : ${fmt(totalCA)}\n• Ce mois : ${venteMois.length} ventes (${fmt(caMois)})`;
+
+  } else {
+    reply = `Je peux vous aider sur :\n• 📊 "Résumé général"\n• 💰 "Chiffre d'affaires"\n• 📈 "Gains et bénéfices"\n• 📦 "État du stock"\n• 🏆 "Top produits rentables"\n• 💸 "Charges"\n• 🤝 "Dettes"\n• ⚠️ "Produits défectueux"`;
+  }
+
+  res.json({ reply });
+});
+
 // ── GET /api/logs ─────────────────────────────────────────────────────────────
 app.get('/api/logs', apiLimiter, requireAuth, requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT * FROM logs ORDER BY id DESC LIMIT 500').all();

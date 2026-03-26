@@ -1369,6 +1369,123 @@ body.dark .charges-col-header.perso    { background: rgba(16,185,129,.18); }
 .pagination-pages { font-size: .82rem; color: var(--dark); font-weight: 600; }
 
 /* ============================================
+   PAGE VENTES — REDESIGN
+   ============================================ */
+.page-subtitle {
+  font-size: .85rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Stats grid 4 colonnes */
+.ventes-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.vente-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  border-left: 4px solid transparent;
+  transition: transform .15s, box-shadow .15s;
+}
+.vente-stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.vente-stat-card.green  { border-left-color: #10b981; }
+.vente-stat-card.teal   { border-left-color: #00d4c4; }
+.vente-stat-card.blue   { border-left-color: #3b82f6; }
+.vente-stat-card.purple { border-left-color: #8b5cf6; }
+.vente-stat-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.vente-stat-label {
+  font-size: .78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 4px;
+}
+.vente-stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--dark);
+}
+
+/* Gain badge */
+.gain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: .82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.gain-badge-pos { background: #d1fae5; color: #065f46; }
+.gain-badge-neg { background: #fee2e2; color: #991b1b; }
+body.dark .gain-badge-pos { background: #064e3b; color: #6ee7b7; }
+body.dark .gain-badge-neg { background: #7f1d1d; color: #fca5a5; }
+
+/* Qty badge */
+.qty-badge {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-weight: 600;
+  font-size: .9rem;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Vendeur tag */
+.vendeur-tag {
+  display: inline-block;
+  background: #ede9fe;
+  color: #5b21b6;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: .8rem;
+  font-weight: 600;
+}
+body.dark .vendeur-tag { background: #3b1e7a; color: #c4b5fd; }
+
+/* Date dans ventes */
+.vente-date {
+  font-size: .85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Action buttons */
+.action-btns {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.btn-icon-edit { color: #3b82f6; }
+.btn-icon-del  { color: #ef4444; }
+.btn-icon:hover { opacity: .8; transform: scale(1.15); }
+
+@media (max-width: 900px) {
+  .ventes-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .ventes-stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .vente-stat-card { padding: 12px 14px; gap: 10px; }
+  .vente-stat-value { font-size: 1rem; }
+}
+
+/* ============================================
    PRINT
    ============================================ */
 @media print {

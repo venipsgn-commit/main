@@ -3269,32 +3269,52 @@ function deleteClient(id) {
 // ============================================
 let _editCommandeId = null;
 
+function _cmdParseProduits(c) {
+  if (c.produits) { try { return JSON.parse(c.produits); } catch {} }
+  if (c.produit) return [{ produit: c.produit, qte: c.qte || 1, prixUnitaire: c.prixUnitaire || 0 }];
+  return [];
+}
+
 function renderCommandes() {
-  const all      = DB.getAll('commandes');
-  const fourn    = DB.getAll('fournisseurs');
-  const statut   = document.getElementById('filterCommandeStatut')?.value || '';
-  const search   = (document.getElementById('filterCommande')?.value || '').toLowerCase();
-  const tbody    = document.getElementById('commandesBody');
+  const all    = DB.getAll('commandes');
+  const fourn  = DB.getAll('fournisseurs');
+  const statut = document.getElementById('filterCommandeStatut')?.value || '';
+  const search = (document.getElementById('filterCommande')?.value || '').toLowerCase();
+  const tbody  = document.getElementById('commandesBody');
   if (!tbody) return;
   const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
   let list = all;
   if (statut) list = list.filter(c => c.statut === statut);
-  if (search) list = list.filter(c => (c.produit || '').toLowerCase().includes(search));
+  if (search) list = list.filter(c => {
+    const lignes = _cmdParseProduits(c);
+    return lignes.some(l => (l.produit || '').toLowerCase().includes(search)) ||
+           (c.produit || '').toLowerCase().includes(search);
+  });
   list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
     return;
   }
   const statutColor = { 'En attente': 'orange', 'Reçue': 'green', 'Annulée': 'red' };
   tbody.innerHTML = list.map(c => {
     const fournisseurNom = fourn.find(f => f.id === c.fournisseurId)?.nom || '—';
+    const lignes = _cmdParseProduits(c);
+    const modelesHtml = lignes.length
+      ? lignes.map(l => `<div style="font-size:0.8rem;"><strong>${l.produit}</strong> × ${l.qte} <span style="color:#888;">@ ${fmt(l.prixUnitaire)}</span></div>`).join('')
+      : `<span style="color:#888;">${c.produit || '—'}</span>`;
+    const totalCommande = lignes.reduce((s, l) => s + (l.qte * l.prixUnitaire), 0) || (c.montant || 0);
+    const reste = totalCommande - (c.montantEnvoye || 0);
     const col = statutColor[c.statut] || 'gray';
     return `<tr>
       <td>${c.date || '—'}</td>
-      <td><strong>${c.produit}</strong></td>
-      <td>${fournisseurNom}</td>
-      <td>${c.qte}</td>
-      <td>${fmt(c.montant)}</td>
+      <td><strong>${fournisseurNom}</strong></td>
+      <td>${modelesHtml}</td>
+      <td style="font-weight:600;">${fmt(totalCommande)}</td>
+      <td>
+        <span style="color:${(c.montantEnvoye||0)>0?'var(--success)':'#888'};">${fmt(c.montantEnvoye||0)}</span>
+        ${reste > 0 ? `<div style="font-size:0.75rem;color:var(--danger);">Reste : ${fmt(reste)}</div>` : ''}
+      </td>
+      <td style="font-size:0.82rem;">${c.dateEnvoi || '—'}</td>
       <td><span class="badge badge-${col}">${c.statut}</span></td>
       <td class="actions-col">
         <button class="btn btn-sm btn-secondary" onclick="openEditCommande(${c.id})">✏️</button>
@@ -3307,14 +3327,66 @@ function renderCommandes() {
 document.getElementById('filterCommandeStatut')?.addEventListener('change', renderCommandes);
 document.getElementById('filterCommande')?.addEventListener('input', renderCommandes);
 
-function _fillCommandeSelects() {
-  const prodSel = document.getElementById('cmd-produit');
-  const foSel   = document.getElementById('cmd-fournisseur');
-  if (prodSel) {
-    const stock = DB.getAll('stock');
-    prodSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
-      stock.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+// Lignes produits en cours dans le modal
+let _cmdLignes = [];
+
+function _cmdStockOptions() {
+  return DB.getAll('stock').map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+}
+
+function cmdAddLigne(ligne) {
+  const opts = _cmdStockOptions();
+  const i = _cmdLignes.length;
+  _cmdLignes.push(ligne || { produit: '', qte: 1, prixUnitaire: 0 });
+  const tbody = document.getElementById('cmdLignesBody');
+  const tr = document.createElement('tr');
+  tr.id = `cmd-ligne-${i}`;
+  tr.innerHTML = `
+    <td><select onchange="_cmdLigneChange(${i},'produit',this.value)" style="width:100%;">
+      <option value="">-- Produit --</option>${opts}
+    </select></td>
+    <td><input type="number" min="1" value="${_cmdLignes[i].qte}" onchange="_cmdLigneChange(${i},'qte',+this.value)" style="width:70px;" /></td>
+    <td><input type="number" min="0" value="${_cmdLignes[i].prixUnitaire}" onchange="_cmdLigneChange(${i},'prixUnitaire',+this.value)" style="width:120px;" /></td>
+    <td id="cmd-sous-${i}" style="font-weight:600;">0 GNF</td>
+    <td><button type="button" class="btn btn-sm btn-danger" onclick="_cmdRemoveLigne(${i})">×</button></td>`;
+  tbody.appendChild(tr);
+  // Pré-sélectionner si édition
+  if (ligne?.produit) {
+    tr.querySelector('select').value = ligne.produit;
   }
+  cmdUpdateTotal();
+}
+
+function _cmdLigneChange(i, key, val) {
+  if (_cmdLignes[i]) {
+    _cmdLignes[i][key] = val;
+    cmdUpdateTotal();
+  }
+}
+
+function _cmdRemoveLigne(i) {
+  _cmdLignes[i] = null;
+  const tr = document.getElementById(`cmd-ligne-${i}`);
+  if (tr) tr.remove();
+  cmdUpdateTotal();
+}
+
+function cmdUpdateTotal() {
+  const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
+  let total = 0;
+  _cmdLignes.forEach((l, i) => {
+    if (!l) return;
+    const sous = (l.qte || 0) * (l.prixUnitaire || 0);
+    total += sous;
+    const el = document.getElementById(`cmd-sous-${i}`);
+    if (el) el.textContent = fmt(sous);
+  });
+  const el = document.getElementById('cmdTotalAffiche');
+  if (el) el.textContent = `Total commande : ${fmt(total)}`;
+}
+
+function _fillCommandeFournisseur() {
+  const foSel = document.getElementById('cmd-fournisseur');
   if (foSel) {
     const fourn = DB.getAll('fournisseurs');
     foSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
@@ -3324,16 +3396,18 @@ function _fillCommandeSelects() {
 
 function openAddCommande() {
   _editCommandeId = null;
+  _cmdLignes = [];
   document.getElementById('modalCommandeTitle').textContent = 'Nouvelle Commande';
-  _fillCommandeSelects();
-  document.getElementById('cmd-date').value          = new Date().toISOString().slice(0, 10);
-  document.getElementById('cmd-produit').value       = '';
-  document.getElementById('cmd-fournisseur').value   = '';
-  document.getElementById('cmd-qte').value           = '1';
-  document.getElementById('cmd-prix').value          = '0';
-  document.getElementById('cmd-statut').value        = 'En attente';
-  document.getElementById('cmd-dateReception').value = '';
-  document.getElementById('cmd-notes').value         = '';
+  _fillCommandeFournisseur();
+  document.getElementById('cmd-date').value           = new Date().toISOString().slice(0, 10);
+  document.getElementById('cmd-fournisseur').value    = '';
+  document.getElementById('cmd-statut').value         = 'En attente';
+  document.getElementById('cmd-dateReception').value  = '';
+  document.getElementById('cmd-montantEnvoye').value  = '0';
+  document.getElementById('cmd-dateEnvoi').value      = '';
+  document.getElementById('cmd-notes').value          = '';
+  document.getElementById('cmdLignesBody').innerHTML  = '';
+  cmdAddLigne();
   document.getElementById('modalCommande').classList.add('open');
 }
 
@@ -3341,36 +3415,61 @@ function openEditCommande(id) {
   const c = DB.getAll('commandes').find(x => x.id === id);
   if (!c) return;
   _editCommandeId = id;
+  _cmdLignes = [];
   document.getElementById('modalCommandeTitle').textContent = 'Modifier Commande';
-  _fillCommandeSelects();
-  document.getElementById('cmd-date').value          = c.date          || '';
-  document.getElementById('cmd-produit').value       = c.produit       || '';
-  document.getElementById('cmd-fournisseur').value   = c.fournisseurId || '';
-  document.getElementById('cmd-qte').value           = c.qte           || 1;
-  document.getElementById('cmd-prix').value          = c.prixUnitaire  || 0;
-  document.getElementById('cmd-statut').value        = c.statut        || 'En attente';
-  document.getElementById('cmd-dateReception').value = c.dateReception  || '';
-  document.getElementById('cmd-notes').value         = c.notes         || '';
+  _fillCommandeFournisseur();
+  document.getElementById('cmd-date').value           = c.date          || '';
+  document.getElementById('cmd-fournisseur').value    = c.fournisseurId || '';
+  document.getElementById('cmd-statut').value         = c.statut        || 'En attente';
+  document.getElementById('cmd-dateReception').value  = c.dateReception || '';
+  document.getElementById('cmd-montantEnvoye').value  = c.montantEnvoye || 0;
+  document.getElementById('cmd-dateEnvoi').value      = c.dateEnvoi     || '';
+  document.getElementById('cmd-notes').value          = c.notes         || '';
+  document.getElementById('cmdLignesBody').innerHTML  = '';
+  const lignes = _cmdParseProduits(c);
+  if (lignes.length) {
+    lignes.forEach(l => cmdAddLigne(l));
+  } else {
+    cmdAddLigne();
+  }
   document.getElementById('modalCommande').classList.add('open');
 }
 
 document.getElementById('saveCommande')?.addEventListener('click', async () => {
-  const date    = document.getElementById('cmd-date').value;
-  const produit = document.getElementById('cmd-produit').value;
-  const qte     = Number(document.getElementById('cmd-qte').value);
-  const prix    = Number(document.getElementById('cmd-prix').value);
-  if (!date || !produit || qte <= 0) { toast('Champs obligatoires manquants', 'error'); return; }
-  const fournisseurId  = Number(document.getElementById('cmd-fournisseur').value) || null;
-  const nouveauStatut  = document.getElementById('cmd-statut').value;
-  const dateReception  = document.getElementById('cmd-dateReception').value || null;
+  const date          = document.getElementById('cmd-date').value;
+  const fournisseurId = Number(document.getElementById('cmd-fournisseur').value) || null;
+  const nouveauStatut = document.getElementById('cmd-statut').value;
+  const dateReception = document.getElementById('cmd-dateReception').value || null;
+  const montantEnvoye = Number(document.getElementById('cmd-montantEnvoye').value) || 0;
+  const dateEnvoi     = document.getElementById('cmd-dateEnvoi').value || null;
+
+  // Récupérer les lignes valides
+  const lignesValides = _cmdLignes.filter(l => l && l.produit && l.qte > 0);
+  if (!date || !fournisseurId) { toast('Date et fournisseur obligatoires', 'error'); return; }
+  if (!lignesValides.length)   { toast('Ajoutez au moins un produit', 'error'); return; }
+
+  const montantTotal = lignesValides.reduce((s, l) => s + (l.qte * l.prixUnitaire), 0);
+  // Pour compatibilité : produit/qte/prixUnitaire = première ligne
+  const premiere = lignesValides[0];
   const record = {
-    date, produit, fournisseurId, qte, prixUnitaire: prix,
-    montant: qte * prix,
+    date,
+    produit:       premiere.produit,
+    fournisseurId,
+    qte:           premiere.qte,
+    prixUnitaire:  premiere.prixUnitaire,
+    montant:       montantTotal,
+    produits:      JSON.stringify(lignesValides),
+    montantEnvoye,
+    dateEnvoi,
     statut:        nouveauStatut,
     dateReception: nouveauStatut === 'Reçue' ? (dateReception || new Date().toISOString().slice(0,10)) : dateReception,
     notes:         document.getElementById('cmd-notes').value.trim() || null,
     createdAt:     new Date().toISOString()
   };
+
+  // Pour la mise à jour stock (tous les produits reçus)
+  const produit = premiere.produit;
+  const qte     = premiere.qte;
 
   // Détecter si le statut passe à "Reçue" pour la première fois → incrémenter le stock
   let ancienStatut = null;
@@ -3384,9 +3483,8 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
   }
 
   if (nouveauStatut === 'Reçue' && ancienStatut !== 'Reçue') {
-    // Le serveur met à jour le stock en DB (route PUT /api/commandes/:id spécialisée)
-    // On recharge le stock depuis le serveur pour avoir la vraie valeur persistée
-    toast(`✅ Commande reçue — Stock de "${produit}" mis à jour (+${qte})`, 'success', 4000);
+    const nomsRecus = lignesValides.map(l => `${l.produit} (+${l.qte})`).join(', ');
+    toast(`✅ Commande reçue — Stock mis à jour : ${nomsRecus}`, 'success', 5000);
     if (DB._serverAvailable) {
       fetch(`${DB._BASE}/stock`, { headers: DB._headers() })
         .then(r => r.json())
@@ -3400,9 +3498,10 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
         })
         .catch(() => { renderStock(); renderDashboard(); });
     } else {
-      // Hors ligne : mise à jour optimiste du cache local
-      const stockItem = DB.getAll('stock').find(p => p.nom === produit);
-      if (stockItem) DB.update('stock', stockItem.id, { qtyInitial: (stockItem.qtyInitial || 0) + qte });
+      lignesValides.forEach(l => {
+        const stockItem = DB.getAll('stock').find(p => p.nom === l.produit);
+        if (stockItem) DB.update('stock', stockItem.id, { qtyInitial: (stockItem.qtyInitial || 0) + l.qte });
+      });
       renderStock();
       renderDashboard();
     }

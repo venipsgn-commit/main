@@ -33,7 +33,7 @@ const TABLE_COLS = {
   dettes:       ['nom', 'type', 'montant', 'date', 'statut', 'clientId', 'createdAt', 'updatedAt'],
   defectueux:   ['date', 'produit', 'qty', 'probleme', 'solution', 'statut', 'createdAt', 'updatedAt'],
   fournisseurs: ['nom', 'contact', 'telephone', 'email', 'adresse', 'createdAt', 'updatedAt'],
-  commandes:    ['date', 'produit', 'stockId', 'fournisseurId', 'qte', 'prixUnitaire', 'montant', 'statut', 'notes', 'dateReception', 'createdAt', 'updatedAt'],
+  commandes:    ['date', 'produit', 'stockId', 'fournisseurId', 'qte', 'prixUnitaire', 'montant', 'statut', 'notes', 'dateReception', 'produits', 'montantEnvoye', 'dateEnvoi', 'createdAt', 'updatedAt'],
   objectifs:    ['periode', 'vendeur', 'cibleCA', 'createdAt', 'updatedAt'],
   clients:      ['nom', 'telephone', 'email', 'adresse', 'notes', 'createdAt', 'updatedAt'],
   retours:      ['date', 'venteId', 'produit', 'qte', 'raison', 'type', 'statut', 'montant', 'createdAt', 'updatedAt'],
@@ -231,7 +231,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS commandes (
     id            INTEGER PRIMARY KEY,
     date          TEXT    NOT NULL,
-    produit       TEXT    NOT NULL,
+    produit       TEXT    NOT NULL DEFAULT '',
     stockId       INTEGER,
     fournisseurId INTEGER,
     qte           INTEGER NOT NULL DEFAULT 1,
@@ -240,9 +240,15 @@ db.exec(`
     statut        TEXT    NOT NULL DEFAULT 'En attente',
     notes         TEXT,
     dateReception TEXT,
+    produits      TEXT,
+    montantEnvoye REAL    DEFAULT 0,
+    dateEnvoi     TEXT,
     createdAt     TEXT,
     updatedAt     TEXT
   );
+  -- Migrations colonnes commandes (si table déjà existante)
+  CREATE INDEX IF NOT EXISTS _tmp_cmd_check ON commandes(id);
+
   CREATE INDEX IF NOT EXISTS idx_commandes_statut ON commandes(statut);
   CREATE INDEX IF NOT EXISTS idx_commandes_date   ON commandes(date);
 
@@ -353,6 +359,16 @@ db.exec(`
   }
   if (!chargesCols.includes('fournisseurId')) {
     db.prepare("ALTER TABLE charges ADD COLUMN fournisseurId INTEGER").run();
+  }
+  const cmdCols = db.prepare("PRAGMA table_info(commandes)").all().map(r => r.name);
+  if (!cmdCols.includes('produits')) {
+    db.prepare("ALTER TABLE commandes ADD COLUMN produits TEXT").run();
+  }
+  if (!cmdCols.includes('montantEnvoye')) {
+    db.prepare("ALTER TABLE commandes ADD COLUMN montantEnvoye REAL DEFAULT 0").run();
+  }
+  if (!cmdCols.includes('dateEnvoi')) {
+    db.prepare("ALTER TABLE commandes ADD COLUMN dateEnvoi TEXT").run();
   }
 })();
 

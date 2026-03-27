@@ -775,7 +775,7 @@
       <div class="table-wrap">
         <table class="data-table">
           <thead>
-            <tr><th>Date</th><th>Produit</th><th>Fournisseur</th><th>Qté</th><th>Montant</th><th>Statut</th><th>Actions</th></tr>
+            <tr><th>Date</th><th>Fournisseur</th><th>Modèles commandés</th><th>Total commande</th><th>Montant envoyé</th><th>Date envoi</th><th>Statut</th><th>Actions</th></tr>
           </thead>
           <tbody id="commandesBody"></tbody>
         </table>
@@ -1306,7 +1306,7 @@
 
 <!-- Modal: Commande -->
 <div class="modal-overlay" id="modalCommande">
-  <div class="modal">
+  <div class="modal modal-lg">
     <div class="modal-header">
       <h3 id="modalCommandeTitle">Nouvelle Commande</h3>
       <button class="modal-close" data-modal="modalCommande">×</button>
@@ -1318,24 +1318,10 @@
           <input type="date" id="cmd-date" required />
         </div>
         <div class="form-group">
-          <label>Produit *</label>
-          <select id="cmd-produit" required>
+          <label>Fournisseur *</label>
+          <select id="cmd-fournisseur" required>
             <option value="">-- Sélectionner --</option>
           </select>
-        </div>
-        <div class="form-group">
-          <label>Fournisseur</label>
-          <select id="cmd-fournisseur">
-            <option value="">-- Sélectionner --</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Quantité *</label>
-          <input type="number" id="cmd-qte" min="1" value="1" required />
-        </div>
-        <div class="form-group">
-          <label>Prix Unitaire</label>
-          <input type="number" id="cmd-prix" min="0" value="0" />
         </div>
         <div class="form-group">
           <label>Statut</label>
@@ -1348,6 +1334,41 @@
         <div class="form-group">
           <label>Date Réception</label>
           <input type="date" id="cmd-dateReception" />
+        </div>
+      </div>
+
+      <!-- Liste des modèles commandés -->
+      <div style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <label style="font-weight:600;font-size:0.9rem;">Modèles commandés *</label>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="cmdAddLigne()">+ Ajouter un produit</button>
+        </div>
+        <div class="table-wrap" style="max-height:220px;overflow-y:auto;">
+          <table class="data-table" style="font-size:0.82rem;">
+            <thead>
+              <tr>
+                <th>Produit</th>
+                <th style="width:80px;">Qté</th>
+                <th style="width:140px;">Prix en gros (GNF)</th>
+                <th style="width:120px;">Sous-total</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="cmdLignesBody"></tbody>
+          </table>
+        </div>
+        <div style="text-align:right;margin-top:8px;font-weight:700;font-size:1rem;color:var(--primary);" id="cmdTotalAffiche">Total commande : 0 GNF</div>
+      </div>
+
+      <!-- Paiement envoyé -->
+      <div class="form-grid" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div class="form-group">
+          <label>Montant envoyé au fournisseur (GNF)</label>
+          <input type="number" id="cmd-montantEnvoye" min="0" value="0" oninput="cmdUpdateTotal()" />
+        </div>
+        <div class="form-group">
+          <label>Date d'envoi du montant</label>
+          <input type="date" id="cmd-dateEnvoi" />
         </div>
         <div class="form-group full-width">
           <label>Notes</label>

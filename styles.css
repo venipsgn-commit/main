@@ -730,6 +730,7 @@ body {
   animation: slideUp .2s ease;
 }
 .modal-sm { max-width: 380px; }
+.modal-lg { max-width: 780px; }
 
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0; }

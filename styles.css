@@ -417,6 +417,8 @@ body {
 .kpi-card.red    { border-left-color: var(--danger); }
 .kpi-card.orange { border-left-color: var(--warning); }
 .kpi-card.dark   { border-left-color: var(--dark-light); }
+.kpi-card.teal   { border-left-color: #0d9488; }
+.kpi-card.teal .kpi-icon { color: #0d9488; }
 
 .kpi-icon { font-size: 2rem; flex-shrink: 0; }
 .kpi-body { flex: 1; min-width: 0; }

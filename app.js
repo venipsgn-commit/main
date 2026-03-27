@@ -665,6 +665,12 @@ function renderDashboard() {
     const def   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((t, d) => t + (d.qty || 0), 0);
     return s + Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - vendu - def);
   }, 0);
+  const valeurStockRestant = stock.reduce((s, p) => {
+    const vendu = ventes.filter(v => v.produit === p.nom).reduce((t, v) => t + (v.qty || 0), 0);
+    const def   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((t, d) => t + (d.qty || 0), 0);
+    const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - vendu - def);
+    return s + restant * (p.pa || 0);
+  }, 0);
   const ruptures = stock.filter(p => {
     const vendu = ventes.filter(v => v.produit === p.nom).reduce((t, v) => t + (v.qty || 0), 0);
     const def   = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((t, d) => t + (d.qty || 0), 0);
@@ -679,6 +685,8 @@ function renderDashboard() {
   document.getElementById('kpi-sold').textContent = fmtNum(totalQty);
   document.getElementById('kpi-charges').textContent = fmt(totalCharges);
   document.getElementById('kpi-stock').textContent = fmtNum(totalStockItems);
+  const kpiValeurStock = document.getElementById('kpi-valeur-stock');
+  if (kpiValeurStock) kpiValeurStock.textContent = fmt(valeurStockRestant);
   document.getElementById('kpi-rupture').textContent = fmtNum(ruptures);
   const kpiDef = document.getElementById('kpi-defectueux');
   if (kpiDef) kpiDef.textContent = fmtNum(totalDefectueux);

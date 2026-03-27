@@ -5,3 +5,5 @@ venips.db-wal
 .env
 backups/
 dist/
+.env.local
+prisma/

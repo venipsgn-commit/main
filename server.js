@@ -33,7 +33,7 @@ const TABLE_COLS = {
   dettes:       ['nom', 'type', 'montant', 'date', 'statut', 'clientId', 'createdAt', 'updatedAt'],
   defectueux:   ['date', 'produit', 'qty', 'probleme', 'solution', 'statut', 'createdAt', 'updatedAt'],
   fournisseurs: ['nom', 'contact', 'telephone', 'email', 'adresse', 'createdAt', 'updatedAt'],
-  commandes:    ['date', 'produit', 'stockId', 'fournisseurId', 'qte', 'prixUnitaire', 'montant', 'statut', 'notes', 'dateReception', 'produits', 'montantEnvoye', 'dateEnvoi', 'createdAt', 'updatedAt'],
+  commandes:    ['date', 'produit', 'stockId', 'fournisseurId', 'qte', 'prixUnitaire', 'montant', 'statut', 'notes', 'dateReception', 'produits', 'montantEnvoye', 'dateEnvoi', 'recuPar', 'createdAt', 'updatedAt'],
   objectifs:    ['periode', 'vendeur', 'cibleCA', 'createdAt', 'updatedAt'],
   clients:      ['nom', 'telephone', 'email', 'adresse', 'notes', 'createdAt', 'updatedAt'],
   retours:      ['date', 'venteId', 'produit', 'qte', 'raison', 'type', 'statut', 'montant', 'createdAt', 'updatedAt'],
@@ -369,6 +369,9 @@ db.exec(`
   }
   if (!cmdCols.includes('dateEnvoi')) {
     db.prepare("ALTER TABLE commandes ADD COLUMN dateEnvoi TEXT").run();
+  }
+  if (!cmdCols.includes('recuPar')) {
+    db.prepare("ALTER TABLE commandes ADD COLUMN recuPar TEXT").run();
   }
 })();
 

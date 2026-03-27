@@ -3292,7 +3292,7 @@ function renderCommandes() {
   });
   list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
     return;
   }
   const statutColor = { 'En attente': 'orange', 'Reçue': 'green', 'Annulée': 'red' };
@@ -3315,6 +3315,7 @@ function renderCommandes() {
         ${reste > 0 ? `<div style="font-size:0.75rem;color:var(--danger);">Reste : ${fmt(reste)}</div>` : ''}
       </td>
       <td style="font-size:0.82rem;">${c.dateEnvoi || '—'}</td>
+      <td style="font-size:0.82rem;">${c.recuPar ? `<span class="badge badge-blue">${c.recuPar}</span>` : '—'}</td>
       <td><span class="badge badge-${col}">${c.statut}</span></td>
       <td class="actions-col">
         <button class="btn btn-sm btn-secondary" onclick="openEditCommande(${c.id})">✏️</button>
@@ -3434,6 +3435,12 @@ function _fillCommandeFournisseur() {
     foSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
       fourn.map(f => `<option value="${f.id}">${f.nom}</option>`).join('');
   }
+  const recuSel = document.getElementById('cmd-recuPar');
+  if (recuSel) {
+    const vendeurs = DB.getAll('vendeurs');
+    recuSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
+      vendeurs.map(v => `<option value="${v.nom}">${v.nom}</option>`).join('');
+  }
 }
 
 function openAddCommande() {
@@ -3447,6 +3454,7 @@ function openAddCommande() {
   document.getElementById('cmd-dateReception').value  = '';
   document.getElementById('cmd-montantEnvoye').value  = '0';
   document.getElementById('cmd-dateEnvoi').value      = '';
+  document.getElementById('cmd-recuPar').value        = '';
   document.getElementById('cmd-notes').value          = '';
   document.getElementById('cmdLignesBody').innerHTML  = '';
   cmdAddLigne();
@@ -3466,6 +3474,7 @@ function openEditCommande(id) {
   document.getElementById('cmd-dateReception').value  = c.dateReception || '';
   document.getElementById('cmd-montantEnvoye').value  = c.montantEnvoye || 0;
   document.getElementById('cmd-dateEnvoi').value      = c.dateEnvoi     || '';
+  document.getElementById('cmd-recuPar').value        = c.recuPar       || '';
   document.getElementById('cmd-notes').value          = c.notes         || '';
   document.getElementById('cmdLignesBody').innerHTML  = '';
   const lignes = _cmdParseProduits(c);
@@ -3527,6 +3536,7 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
     produits:      JSON.stringify(lignesValides),
     montantEnvoye,
     dateEnvoi,
+    recuPar:       document.getElementById('cmd-recuPar').value || null,
     statut:        nouveauStatut,
     dateReception: nouveauStatut === 'Reçue' ? (dateReception || new Date().toISOString().slice(0,10)) : dateReception,
     notes:         document.getElementById('cmd-notes').value.trim() || null,

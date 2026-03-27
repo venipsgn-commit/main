@@ -731,6 +731,7 @@ body {
 }
 .modal-sm { max-width: 380px; }
 .modal-lg { max-width: 780px; }
+.input-sm { border:1px solid var(--border,#ddd); border-radius:5px; padding:4px 8px; font-size:0.82rem; width:100%; }
 
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0; }

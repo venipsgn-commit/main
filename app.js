@@ -3337,23 +3337,65 @@ function _cmdStockOptions() {
 function cmdAddLigne(ligne) {
   const opts = _cmdStockOptions();
   const i = _cmdLignes.length;
-  _cmdLignes.push(ligne || { produit: '', qte: 1, prixUnitaire: 0 });
+  _cmdLignes.push(ligne || { produit: '', qte: 1, prixUnitaire: 0, _nouveau: false });
   const tbody = document.getElementById('cmdLignesBody');
   const tr = document.createElement('tr');
   tr.id = `cmd-ligne-${i}`;
   tr.innerHTML = `
-    <td><select onchange="_cmdLigneChange(${i},'produit',this.value)" style="width:100%;">
-      <option value="">-- Produit --</option>${opts}
-    </select></td>
+    <td>
+      <select id="cmd-sel-${i}" onchange="_cmdSelectProduit(${i},this.value)" style="width:100%;">
+        <option value="">-- Produit existant --</option>
+        <option value="__nouveau__">✚ Nouveau produit...</option>
+        ${opts}
+      </select>
+      <div id="cmd-nouveau-${i}" style="display:none;margin-top:6px;padding:8px;background:var(--bg-alt,#f8f9fa);border-radius:6px;border:1px dashed var(--primary);">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--primary);margin-bottom:6px;">Nouveau produit à créer</div>
+        <input id="cmd-new-nom-${i}" type="text" placeholder="Nom du produit *" style="width:100%;margin-bottom:4px;" class="input-sm" oninput="_cmdNouveauChange(${i})" />
+        <div style="display:flex;gap:6px;margin-bottom:4px;">
+          <input id="cmd-new-pv-${i}" type="number" min="0" placeholder="Prix vente (GNF) *" style="flex:1;" class="input-sm" />
+          <input id="cmd-new-cat-${i}" type="text" placeholder="Catégorie" style="flex:1;" class="input-sm" list="categoriesList" />
+        </div>
+        <small style="color:#888;">Prix d'achat = prix en gros saisi à droite</small>
+      </div>
+    </td>
     <td><input type="number" min="1" value="${_cmdLignes[i].qte}" onchange="_cmdLigneChange(${i},'qte',+this.value)" style="width:70px;" /></td>
     <td><input type="number" min="0" value="${_cmdLignes[i].prixUnitaire}" onchange="_cmdLigneChange(${i},'prixUnitaire',+this.value)" style="width:120px;" /></td>
     <td id="cmd-sous-${i}" style="font-weight:600;">0 GNF</td>
     <td><button type="button" class="btn btn-sm btn-danger" onclick="_cmdRemoveLigne(${i})">×</button></td>`;
   tbody.appendChild(tr);
-  // Pré-sélectionner si édition
-  if (ligne?.produit) {
-    tr.querySelector('select').value = ligne.produit;
+  if (ligne?.produit && ligne.produit !== '__nouveau__') {
+    const sel = document.getElementById(`cmd-sel-${i}`);
+    if (sel) sel.value = ligne.produit;
+    if (!sel?.value) {
+      // Produit n'existe pas encore dans le stock (ancien nouveau produit)
+      sel.value = '__nouveau__';
+      _cmdSelectProduit(i, '__nouveau__');
+      const nomEl = document.getElementById(`cmd-new-nom-${i}`);
+      if (nomEl) nomEl.value = ligne.produit;
+      _cmdLignes[i]._nouveau = true;
+      _cmdLignes[i].produit  = ligne.produit;
+    }
   }
+  cmdUpdateTotal();
+}
+
+function _cmdSelectProduit(i, val) {
+  const nouvDiv = document.getElementById(`cmd-nouveau-${i}`);
+  if (val === '__nouveau__') {
+    if (nouvDiv) nouvDiv.style.display = 'block';
+    _cmdLignes[i]._nouveau = true;
+    _cmdLignes[i].produit  = '';
+  } else {
+    if (nouvDiv) nouvDiv.style.display = 'none';
+    _cmdLignes[i]._nouveau = false;
+    _cmdLignes[i].produit  = val;
+    cmdUpdateTotal();
+  }
+}
+
+function _cmdNouveauChange(i) {
+  const nom = document.getElementById(`cmd-new-nom-${i}`)?.value.trim() || '';
+  _cmdLignes[i].produit = nom;
   cmdUpdateTotal();
 }
 
@@ -3443,10 +3485,34 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
   const montantEnvoye = Number(document.getElementById('cmd-montantEnvoye').value) || 0;
   const dateEnvoi     = document.getElementById('cmd-dateEnvoi').value || null;
 
-  // Récupérer les lignes valides
+  // Récupérer les lignes valides + créer les nouveaux produits si besoin
   const lignesValides = _cmdLignes.filter(l => l && l.produit && l.qte > 0);
   if (!date || !fournisseurId) { toast('Date et fournisseur obligatoires', 'error'); return; }
   if (!lignesValides.length)   { toast('Ajoutez au moins un produit', 'error'); return; }
+
+  // Créer les nouveaux produits dans le stock
+  for (let idx = 0; idx < _cmdLignes.length; idx++) {
+    const l = _cmdLignes[idx];
+    if (!l || !l._nouveau || !l.produit) continue;
+    const nom = l.produit.trim();
+    const pv  = Number(document.getElementById(`cmd-new-pv-${idx}`)?.value)  || 0;
+    const cat = document.getElementById(`cmd-new-cat-${idx}`)?.value.trim()  || '';
+    const dejaExiste = DB.getAll('stock').find(p => p.nom.toLowerCase() === nom.toLowerCase());
+    if (!dejaExiste) {
+      const newProd = {
+        id:          Date.now() + idx,
+        nom,
+        pa:          l.prixUnitaire || 0,
+        pv,
+        qtyInitial:  0,
+        categorie:   cat,
+        seuilAlerte: 5,
+        createdAt:   new Date().toISOString(),
+      };
+      DB.insert('stock', newProd);
+      toast(`Nouveau produit créé : ${nom}`, 'success', 3000);
+    }
+  }
 
   const montantTotal = lignesValides.reduce((s, l) => s + (l.qte * l.prixUnitaire), 0);
   // Pour compatibilité : produit/qte/prixUnitaire = première ligne

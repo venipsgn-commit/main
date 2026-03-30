@@ -1053,11 +1053,18 @@ body {
     font-size: .84rem;
     gap: 8px;
     white-space: normal;
-    word-break: break-word;
-    overflow: hidden;
+    word-break: normal;
+    overflow-wrap: break-word;
+    overflow: visible;
     box-sizing: border-box;
     max-width: 100%;
     width: 100%;
+  }
+  .data-table td > * {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
   .data-table td:last-child { border-bottom: none; }
   .data-table td::before {
@@ -1067,8 +1074,10 @@ body {
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: .4px;
-    flex: 0 0 80px;
+    flex: 0 0 100px;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* Ligne Actions : boutons côte à côte, pleine largeur */
   .data-table td[data-label="Actions"] {

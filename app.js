@@ -866,6 +866,7 @@ function renderChart(canvasId, labels, data, label, color, existing, setter) {
 
 function renderVentes() {
   let ventes = DB.getAll('ventes');
+  const dateFilter    = document.getElementById('filterVenteDate').value;
   const monthFilter   = document.getElementById('filterVenteMonth').value;
   const searchFilter  = document.getElementById('filterVenteSearch').value.toLowerCase();
   const vendeurFilter = document.getElementById('filterVenteVendeur')?.value || '';
@@ -879,7 +880,8 @@ function renderVentes() {
       vendeurs.map(v => `<option value="${escHtml(v)}" ${v === curVal ? 'selected' : ''}>${escHtml(v)}</option>`).join('');
   }
 
-  if (monthFilter)   ventes = ventes.filter(v => ym(v.date) === monthFilter);
+  if (dateFilter)    ventes = ventes.filter(v => v.date === dateFilter);
+  else if (monthFilter) ventes = ventes.filter(v => ym(v.date) === monthFilter);
   if (searchFilter)  ventes = ventes.filter(v => v.produit.toLowerCase().includes(searchFilter));
   if (vendeurFilter) ventes = ventes.filter(v => (v.vendeur || '') === vendeurFilter);
 
@@ -2589,10 +2591,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Filtres Ventes
-  document.getElementById('filterVenteMonth').addEventListener('change', renderVentes);
+  document.getElementById('filterVenteDate').addEventListener('change', () => {
+    if (document.getElementById('filterVenteDate').value) {
+      document.getElementById('filterVenteMonth').value = '';
+    }
+    renderVentes();
+  });
+  document.getElementById('filterVenteMonth').addEventListener('change', () => {
+    if (document.getElementById('filterVenteMonth').value) {
+      document.getElementById('filterVenteDate').value = '';
+    }
+    renderVentes();
+  });
+  document.getElementById('filterVenteToday').addEventListener('click', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById('filterVenteDate').value = today;
+    document.getElementById('filterVenteMonth').value = '';
+    renderVentes();
+  });
   document.getElementById('filterVenteSearch').addEventListener('input', debounce(renderVentes));
   document.getElementById('filterVenteVendeur')?.addEventListener('change', renderVentes);
   document.getElementById('filterVenteReset').addEventListener('click', () => {
+    document.getElementById('filterVenteDate').value = '';
     document.getElementById('filterVenteMonth').value = '';
     document.getElementById('filterVenteSearch').value = '';
     const vendeurSel = document.getElementById('filterVenteVendeur');

@@ -1056,6 +1056,8 @@ body {
     word-break: break-word;
     overflow: hidden;
     box-sizing: border-box;
+    max-width: 100%;
+    width: 100%;
   }
   .data-table td:last-child { border-bottom: none; }
   .data-table td::before {

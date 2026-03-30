@@ -1064,7 +1064,7 @@ body {
     flex: 1;
     min-width: 0;
     overflow-wrap: break-word;
-    word-break: break-word;
+    word-break: normal;
   }
   .data-table td:last-child { border-bottom: none; }
   .data-table td::before {
@@ -1491,6 +1491,8 @@ body.dark .notif-badge    { border-color: #1e293b; }
 /* Dark mode card-view tables */
 body.dark .data-table tr { background: var(--white); border-color: var(--border); }
 body.dark .data-table td { border-bottom-color: var(--bg); color: var(--dark); }
+/* Dark mode progress bar track */
+body.dark [style*="background:#e2e8f0"] { background: #334155 !important; }
 
 /* Dark mode vente-stat-card */
 body.dark .vente-stat-card { background: #1e293b; }

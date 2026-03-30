@@ -741,7 +741,12 @@ function renderDashboard() {
 
   // Stock faible
   const lowBody = document.getElementById('lowStockBody');
-  const lowItems = stock.filter(p => p.qty <= 10).sort((a, b) => a.qty - b.qty);
+  const lowItems = stock.map(p => {
+    const vendu   = ventes.filter(v => v.produit === p.nom).reduce((t, v) => t + (v.qty || 0), 0);
+    const def     = defectueux.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((t, d) => t + (d.qty || 0), 0);
+    const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - vendu - def);
+    return { ...p, restant };
+  }).filter(p => p.restant <= 10).sort((a, b) => a.restant - b.restant);
   if (lowBody) {
     if (lowItems.length === 0) {
       lowBody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">✅</div><p>Aucun produit en stock faible</p></div></td></tr>`;
@@ -749,8 +754,8 @@ function renderDashboard() {
       lowBody.innerHTML = lowItems.map(p => `
         <tr>
           <td data-label="Produit">${escHtml(p.nom)}</td>
-          <td data-label="Qté">${p.qty}</td>
-          <td data-label="Statut">${p.qty === 0
+          <td data-label="Qté">${p.restant}</td>
+          <td data-label="Statut">${p.restant === 0
             ? '<span class="badge badge-danger">Rupture</span>'
             : '<span class="badge badge-warning">Faible</span>'}</td>
         </tr>`).join('');
@@ -1256,9 +1261,9 @@ function renderStock() {
   stock.sort((a, b) => a.nom.localeCompare(b.nom));
 
   const allStock = DB.getAll('stock');
-  const dispo = allStock.filter(p => p.qty > 0).length;
-  const rupture = allStock.filter(p => p.qty === 0).length;
-  const valeur = allStock.reduce((s, p) => s + p.pa * p.qty, 0);
+  const dispo   = allStock.filter(p => getRestant(p) > (p.seuilAlerte ?? 5)).length;
+  const rupture = allStock.filter(p => getRestant(p) === 0).length;
+  const valeur  = allStock.reduce((s, p) => s + (p.pa || 0) * getRestant(p), 0);
 
   document.getElementById('stock-dispo').textContent = fmtNum(dispo);
   document.getElementById('stock-rupture').textContent = fmtNum(rupture);

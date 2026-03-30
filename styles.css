@@ -1148,6 +1148,119 @@ body {
   .comparison-grid { flex-wrap: wrap; gap: 8px; }
   .comp-badge { width: 100%; text-align: center; }
 
+  /* ====================================================
+     STOCK: layout grid dédié — lisible sur téléphone
+     ==================================================== */
+  #stockBody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 5px 10px;
+    padding: 12px;
+  }
+
+  /* Reset: chaque td devient un bloc (plus de flex) */
+  #stockBody td {
+    display: block;
+    padding: 0;
+    border-bottom: none;
+    overflow: visible;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+    flex: none;
+    font-size: .84rem;
+  }
+
+  /* Label au-dessus de la valeur */
+  #stockBody td::before {
+    display: block;
+    font-size: .61rem;
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: visible;
+    flex: none;
+  }
+
+  /* ── Ligne 1 : Nom produit (col 1) | Statut (col 2) ── */
+  #stockBody td[data-label="Produit"] {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: .93rem;
+  }
+  #stockBody td[data-label="Produit"]::before { display: none; }
+
+  #stockBody td[data-label="Statut"] {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+  }
+  #stockBody td[data-label="Statut"]::before { display: none; }
+
+  /* ── Ligne 2 : Catégorie (col 1) | Stock Initial (col 2) ── */
+  #stockBody td[data-label="Catégorie"] { grid-column: 1; grid-row: 2; }
+  #stockBody td[data-label="Stock Initial"] {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: right;
+  }
+
+  /* ── Ligne 3 : Barre de progression pleine largeur ── */
+  #stockBody td[data-label="Stock Restant"] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    padding: 4px 0 2px;
+  }
+  #stockBody td[data-label="Stock Restant"]::before { display: none; }
+  #stockBody td[data-label="Stock Restant"] > div { width: 100%; }
+
+  /* ── Ligne 4-5 : Financier (admin) ── */
+  #stockBody td[data-label="Prix Achat"] {
+    grid-column: 1;
+    grid-row: 4;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 2px;
+  }
+  #stockBody td[data-label="Marge"] {
+    grid-column: 2;
+    grid-row: 4;
+    text-align: right;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 2px;
+  }
+  #stockBody td[data-label="Prix Vente"] { grid-column: 1; grid-row: 5; }
+  #stockBody td[data-label="Prévision"]  { grid-column: 2; grid-row: 5; text-align: right; }
+
+  /* ── Ligne 6 : Actions pleine largeur ── */
+  #stockBody td[data-label="Actions"] {
+    grid-column: 1 / -1;
+    grid-row: 6;
+    display: flex;
+    gap: 8px;
+    padding-top: 10px;
+    margin-top: 2px;
+    border-top: 1px solid var(--border);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  #stockBody td[data-label="Actions"]::before { display: none; }
+  #stockBody td[data-label="Actions"] .btn    { flex: 1; justify-content: center; min-height: 40px; }
+  #stockBody td[data-label="Actions"] .btn-icon { flex: 0 0 auto; min-height: 40px; min-width: 40px; }
+
+  /* Empty state */
+  #stockBody tr:has(.empty-state) { display: block; }
+  #stockBody tr:has(.empty-state) td { display: block; overflow: visible; }
+  /* Fallback sans :has() */
+  #stockBody td:not([data-label]) { display: block; overflow: visible; }
+
   /* ---- Toast ---- */
   .toast-container { bottom: 12px; right: 10px; left: 10px; }
   .toast { max-width: 100%; font-size: .85rem; }

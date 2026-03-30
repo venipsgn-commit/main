@@ -2757,20 +2757,51 @@ async function renderHistorique() {
     const tableNames   = { ventes: 'Ventes', stock: 'Stock', charges: 'Charges', dettes: 'Dettes', defectueux: 'Défectueux', vendeurs: 'Vendeurs' };
 
     if (logs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune entrée dans l'historique</p></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune entrée dans l'historique</p></div></td></tr>`;
       if (paginEl) paginEl.innerHTML = '';
       return;
     }
     tbody.innerHTML = logs.slice(0, 200).map(l => {
       const dt = new Date(l.timestamp);
       const dtStr = dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      return `<tr>
+
+      // Tenter de parser les détails JSON
+      let detailsObj = null;
+      try { detailsObj = typeof l.details === 'string' ? JSON.parse(l.details) : l.details; } catch {}
+
+      const isVente = l.tableName === 'ventes';
+
+      // Badge action : vente ajoutée = "🛒 Signalée"
+      const actionLabel = (isVente && l.action === 'AJOUT') ? '🛒 Signalée' : escHtml(l.action);
+      const actionClass = actionColors[l.action] || 'badge-info';
+
+      // Vendeur & date de vente extraits du JSON
+      const vendeurCell = detailsObj?.vendeur
+        ? `<strong>${escHtml(detailsObj.vendeur)}</strong>`
+        : (isVente ? '—' : '<span style="color:var(--muted)">—</span>');
+
+      const dateVenteCell = detailsObj?.date
+        ? formatDate(detailsObj.date)
+        : (isVente ? '—' : '<span style="color:var(--muted)">—</span>');
+
+      // Résumé détails
+      const detailsText = isVente && detailsObj?.produit
+        ? `${escHtml(detailsObj.produit)}${detailsObj.qty ? ' ×' + detailsObj.qty : ''}`
+        : escHtml(l.details || '—');
+
+      // Ligne cliquable pour les ventes → naviguer vers la page Ventes
+      const rowAttrs = isVente
+        ? `style="cursor:pointer" title="Voir les ventes" onclick="navigateTo('ventes')"`
+        : '';
+
+      return `<tr ${rowAttrs}>
         <td data-label="Date/Heure" style="white-space:nowrap">${dtStr}</td>
         <td data-label="Utilisateur"><strong>${escHtml(l.username)}</strong></td>
-        <td data-label="Action"><span class="badge ${actionColors[l.action] || ''}">${escHtml(l.action)}</span></td>
+        <td data-label="Action"><span class="badge ${actionClass}">${actionLabel}</span></td>
         <td data-label="Table">${tableNames[l.tableName] || escHtml(l.tableName)}</td>
-        <td data-label="ID">${l.recordId || '—'}</td>
-        <td data-label="Détails" style="font-size:.75rem;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(l.details || '')}">${escHtml(l.details || '—')}</td>
+        <td data-label="Vendeur">${vendeurCell}</td>
+        <td data-label="Date vente">${dateVenteCell}</td>
+        <td data-label="Détails" style="font-size:.75rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(l.details || '')}">${detailsText}</td>
       </tr>`;
     }).join('');
     if (paginEl) paginEl.innerHTML = '';

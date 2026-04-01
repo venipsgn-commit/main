@@ -809,6 +809,67 @@ body {
 }
 
 /* ============================================
+   COMBO-BOX (searchable product picker)
+   ============================================ */
+.combo-box { position: relative; }
+.combo-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .9rem;
+  color: var(--dark);
+  background: var(--white);
+  outline: none;
+  transition: var(--transition);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.combo-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+}
+.combo-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0; right: 0;
+  z-index: 1200;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-md);
+}
+.combo-dropdown.open { display: block; }
+.combo-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: .88rem;
+  color: var(--dark);
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.combo-option:last-child { border-bottom: none; }
+.combo-option:hover { background: var(--bg); }
+.combo-option.combo-empty { color: var(--muted); cursor: default; justify-content: center; }
+.combo-restant {
+  font-size: .78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+body.dark .combo-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+}
+body.dark .combo-option { color: #e2e8f0; border-color: #334155; }
+body.dark .combo-option:hover { background: #334155; }
+
+/* ============================================
    TOAST
    ============================================ */
 .toast-container {

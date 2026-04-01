@@ -1017,9 +1017,11 @@
         </div>
         <div class="form-group">
           <label>Produit *</label>
-          <select id="vente-produit" required>
-            <option value="">-- Sélectionner --</option>
-          </select>
+          <div class="combo-box">
+            <input type="text" class="combo-input" id="vente-produit-search" placeholder="🔍 Chercher un produit..." autocomplete="off" />
+            <div class="combo-dropdown" id="vente-produit-list"></div>
+          </div>
+          <input type="hidden" id="vente-produit" />
         </div>
         <div class="form-group">
           <label>Quantité *</label>
@@ -1188,9 +1190,11 @@
         </div>
         <div class="form-group full-width">
           <label>Produit *</label>
-          <select id="creance-produit" required>
-            <option value="">-- Sélectionner un produit --</option>
-          </select>
+          <div class="combo-box">
+            <input type="text" class="combo-input" id="creance-produit-search" placeholder="🔍 Chercher un produit..." autocomplete="off" />
+            <div class="combo-dropdown" id="creance-produit-list"></div>
+          </div>
+          <input type="hidden" id="creance-produit" />
         </div>
         <div class="form-group">
           <label>Quantité *</label>

@@ -973,7 +973,11 @@ function openAddVente() {
   document.getElementById('vente-pv').value = '';
   document.getElementById('vente-remise').value = '0';
   document.getElementById('vente-gain').value = '';
-  populateStockSelect('vente-produit');
+  initProductCombo('vente-produit-search', 'vente-produit-list', 'vente-produit', '', (pa, pv) => {
+    document.getElementById('vente-pa').value = pa;
+    document.getElementById('vente-pv').value = pv;
+    calcGain();
+  });
 
   const sel = document.getElementById('vente-vendeur');
   if (!AUTH.isAdmin()) {
@@ -1120,39 +1124,81 @@ function openEditVente(id) {
   document.getElementById('vente-pv').value = v.pv;
   document.getElementById('vente-remise').value = v.remise || 0;
   document.getElementById('vente-gain').value = v.gain;
-  populateStockSelect('vente-produit', v.produit);
+  initProductCombo('vente-produit-search', 'vente-produit-list', 'vente-produit', v.produit, (pa, pv) => {
+    document.getElementById('vente-pa').value = pa;
+    document.getElementById('vente-pv').value = pv;
+    calcGain();
+  });
   populateVendeurSelect('vente-vendeur', v.vendeur);
   showModal('modalVente');
 }
 
-function populateStockSelect(selectId, selectedNom = '') {
-  const sel = document.getElementById(selectId);
-  const stock = DB.getAll('stock');
-  const ventes = DB.getAll('ventes');
-  const defectueuxList = DB.getAll('defectueux');
-  sel.innerHTML = '<option value="">-- Sélectionner --</option>';
-  stock.forEach(p => {
-    const totalVendu = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
-    const totalDef   = defectueuxList.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
-    const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - totalVendu - totalDef);
-    const opt = document.createElement('option');
-    opt.value = p.nom;
-    opt.textContent = `${p.nom} (restant: ${restant})`;
-    opt.dataset.pa = p.pa;
-    opt.dataset.pv = p.pv;
-    if (p.nom === selectedNom) opt.selected = true;
-    sel.appendChild(opt);
+// ── Searchable product combo-box ────────────────────────────────────────────
+// searchId  : id of the visible text input
+// listId    : id of the dropdown div
+// hiddenId  : id of the hidden input storing the selected value
+// preselect : product name to pre-fill (empty string = none)
+// onSelect  : callback(pa, pv) called when a product is chosen
+function initProductCombo(searchId, listId, hiddenId, preselect, onSelect) {
+  const searchEl = document.getElementById(searchId);
+  const listEl   = document.getElementById(listId);
+  const hiddenEl = document.getElementById(hiddenId);
+  if (!searchEl || !listEl || !hiddenEl) return;
+
+  const ventes        = DB.getAll('ventes');
+  const defectueuxAll = DB.getAll('defectueux');
+  const items = DB.getAll('stock')
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }))
+    .map(p => {
+      const vendu   = ventes.filter(v => v.produit === p.nom).reduce((s, v) => s + (v.qty || 0), 0);
+      const def     = defectueuxAll.filter(d => d.produit === p.nom && d.statut !== 'Résolu').reduce((s, d) => s + (d.qty || 0), 0);
+      const restant = Math.max(0, (p.qtyInitial ?? p.qty ?? 0) - vendu - def);
+      return { nom: p.nom, restant, pa: p.pa ?? 0, pv: p.pv ?? 0 };
+    });
+
+  function renderList(query) {
+    const q = (query || '').toLowerCase();
+    const filtered = q ? items.filter(i => i.nom.toLowerCase().includes(q)) : items;
+    listEl.innerHTML = filtered.length
+      ? filtered.map(i =>
+          `<div class="combo-option" data-nom="${escHtml(i.nom)}" data-pa="${i.pa}" data-pv="${i.pv}">
+            <span>${escHtml(i.nom)}</span>
+            <span class="combo-restant">restant: ${i.restant}</span>
+          </div>`).join('')
+      : '<div class="combo-option combo-empty">Aucun produit trouvé</div>';
+    listEl.classList.add('open');
+    listEl.querySelectorAll('.combo-option[data-nom]').forEach(opt => {
+      opt.addEventListener('mousedown', e => {
+        e.preventDefault();
+        pick(opt.dataset.nom, opt.dataset.pa, opt.dataset.pv);
+      });
+    });
+  }
+
+  function pick(nom, pa, pv) {
+    hiddenEl.value  = nom;
+    searchEl.value  = nom;
+    listEl.classList.remove('open');
+    if (onSelect) onSelect(parseFloat(pa) || 0, parseFloat(pv) || 0);
+  }
+
+  // Wire up events
+  searchEl.addEventListener('input',  () => renderList(searchEl.value));
+  searchEl.addEventListener('focus',  () => renderList(searchEl.value));
+  searchEl.addEventListener('blur',   () => setTimeout(() => listEl.classList.remove('open'), 180));
+  searchEl.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { listEl.classList.remove('open'); searchEl.blur(); }
   });
-  // Auto-fill prix on change
-  sel.onchange = () => {
-    const opt = sel.options[sel.selectedIndex];
-    if (opt && opt.dataset.pa) {
-      document.getElementById('vente-pa').value = opt.dataset.pa;
-      document.getElementById('vente-pv').value = opt.dataset.pv;
-      calcGain();
-    }
-  };
-  if (selectedNom) sel.dispatchEvent(new Event('change'));
+
+  // Preselect on open
+  if (preselect) {
+    const item = items.find(i => i.nom === preselect);
+    if (item) pick(preselect, item.pa, item.pv);
+    else { hiddenEl.value = ''; searchEl.value = preselect; }
+  } else {
+    hiddenEl.value = '';
+    searchEl.value = '';
+  }
 }
 
 function populateVendeurSelect(selectId, selectedNom = '') {
@@ -1743,24 +1789,16 @@ function markDettePaid(id) {
 // ============================================
 
 function _fillCreanceSelects() {
-  const vendeurs = DB.getAll('vendeurs');
-  const stock    = DB.getAll('stock');
+  const vendeurs = DB.getAll('vendeurs').sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
 
-  const vendeurSel  = document.getElementById('creance-vendeur');
-  const produitSel  = document.getElementById('creance-produit');
-  const filterVend  = document.getElementById('filterCreanceVendeur');
+  const vendeurSel = document.getElementById('creance-vendeur');
+  const filterVend = document.getElementById('filterCreanceVendeur');
 
   if (vendeurSel) {
     const cur = vendeurSel.value;
     vendeurSel.innerHTML = '<option value="">-- Sélectionner un vendeur --</option>' +
       vendeurs.map(v => `<option value="${escHtml(v.nom)}">${escHtml(v.nom)}</option>`).join('');
     vendeurSel.value = cur;
-  }
-  if (produitSel) {
-    const cur = produitSel.value;
-    produitSel.innerHTML = '<option value="">-- Sélectionner un produit --</option>' +
-      stock.map(p => `<option value="${escHtml(p.nom)}">${escHtml(p.nom)}</option>`).join('');
-    produitSel.value = cur;
   }
   if (filterVend) {
     const cur = filterVend.value;
@@ -1828,12 +1866,12 @@ function openAddCreance() {
   _fillCreanceSelects();
   document.getElementById('modalCreanceTitle').textContent = 'Nouvelle Créance';
   document.getElementById('creance-vendeur').value = '';
-  document.getElementById('creance-produit').value = '';
   document.getElementById('creance-qty').value    = 1;
   document.getElementById('creance-prix').value   = '';
   document.getElementById('creance-date').value   = today();
   document.getElementById('creance-statut').value = 'En attente';
   document.getElementById('creance-note').value   = '';
+  initProductCombo('creance-produit-search', 'creance-produit-list', 'creance-produit', '', null);
   showModal('modalCreance');
 }
 
@@ -1844,12 +1882,12 @@ function openEditCreance(id) {
   _fillCreanceSelects();
   document.getElementById('modalCreanceTitle').textContent = 'Modifier Créance';
   document.getElementById('creance-vendeur').value = c.vendeur || '';
-  document.getElementById('creance-produit').value = c.produit || '';
   document.getElementById('creance-qty').value    = c.qty || 1;
   document.getElementById('creance-prix').value   = c.prix || '';
   document.getElementById('creance-date').value   = c.date || today();
   document.getElementById('creance-statut').value = c.statut || 'En attente';
   document.getElementById('creance-note').value   = c.note || '';
+  initProductCombo('creance-produit-search', 'creance-produit-list', 'creance-produit', c.produit || '', null);
   showModal('modalCreance');
 }
 

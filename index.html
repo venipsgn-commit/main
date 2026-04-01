@@ -35,6 +35,9 @@
     <li class="nav-item" data-page="dettes">
       <span class="nav-icon">🤝</span><span class="nav-label">Dettes</span>
     </li>
+    <li class="nav-item" data-page="creances">
+      <span class="nav-icon">📒</span><span class="nav-label">Créances</span>
+    </li>
     <li class="nav-item" data-page="recus">
       <span class="nav-icon">🧾</span><span class="nav-label">Reçus</span>
     </li>
@@ -565,6 +568,56 @@
     </div>
   </section>
 
+
+  <!-- PAGE: CRÉANCES VENDEURS -->
+  <section class="page" id="page-creances">
+    <div class="page-header">
+      <h2>Créances Vendeurs</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV('creances')">⬇ CSV</button>
+        <button class="btn btn-primary" id="btnAddCreance">+ Nouvelle Créance</button>
+      </div>
+    </div>
+
+    <div class="summary-row">
+      <div class="summary-card orange"><span>En Attente</span><strong id="creance-count">0</strong></div>
+      <div class="summary-card red"><span>Montant Dû</span><strong id="creance-montant">0 GNF</strong></div>
+      <div class="summary-card green"><span>Réglées</span><strong id="creance-paid">0</strong></div>
+    </div>
+
+    <div class="filters-bar">
+      <select id="filterCreanceVendeur" class="filter-input">
+        <option value="">Tous les vendeurs</option>
+      </select>
+      <select id="filterCreanceStatut" class="filter-input">
+        <option value="">Tous les statuts</option>
+        <option value="En attente">En attente</option>
+        <option value="Payé">Payé</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" id="filterCreanceReset">Réinitialiser</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Vendeur</th>
+              <th>Produit</th>
+              <th>Qté</th>
+              <th>Prix Unit.</th>
+              <th>Total</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="creancesBody"></tbody>
+        </table>
+      </div>
+      <div id="creancesPageBar"></div>
+    </div>
+  </section>
 
   <!-- PAGE: DÉFECTUEUX -->
   <section class="page" id="page-defectueux">
@@ -1118,6 +1171,59 @@
 </div>
 
 <!-- Modal: Dette -->
+<!-- Modal: Créance Vendeur -->
+<div class="modal-overlay" id="modalCreance">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalCreanceTitle">Nouvelle Créance</h3>
+      <button class="modal-close" data-modal="modalCreance">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Vendeur *</label>
+          <select id="creance-vendeur" required>
+            <option value="">-- Sélectionner un vendeur --</option>
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Produit *</label>
+          <select id="creance-produit" required>
+            <option value="">-- Sélectionner un produit --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantité *</label>
+          <input type="number" id="creance-qty" min="1" value="1" required />
+        </div>
+        <div class="form-group">
+          <label>Prix Unitaire (GNF) *</label>
+          <input type="number" id="creance-prix" min="0" required />
+        </div>
+        <div class="form-group">
+          <label>Date de prise *</label>
+          <input type="date" id="creance-date" required />
+        </div>
+        <div class="form-group">
+          <label>Statut</label>
+          <select id="creance-statut">
+            <option>En attente</option>
+            <option>Payé</option>
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Note</label>
+          <input type="text" id="creance-note" placeholder="Optionnel..." />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal="modalCreance">Annuler</button>
+      <button class="btn btn-primary" id="saveCreance">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalDette">
   <div class="modal">
     <div class="modal-header">

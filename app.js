@@ -216,7 +216,7 @@ const AUTH = {
 // BASE DE DONNÉES (SQLite via serveur Node.js, fallback localStorage)
 // ============================================
 const DB = {
-  _cache: { stock: [], ventes: [], vendeurs: [], charges: [], dettes: [], defectueux: [] },
+  _cache: { stock: [], ventes: [], vendeurs: [], charges: [], dettes: [], defectueux: [], creances: [] },
   _BASE: '/api',
   _serverAvailable: false,
   _QUEUE_KEY: 'venips_offline_queue',
@@ -266,7 +266,7 @@ const DB = {
   loadFromStorage() {
     const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
                     'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires',
-                    'objectifs_perso'];
+                    'objectifs_perso', 'creances'];
     tables.forEach(t => {
       try { this._cache[t] = JSON.parse(localStorage.getItem('bp_' + t) || '[]'); } catch { this._cache[t] = []; }
     });
@@ -276,7 +276,7 @@ const DB = {
   async fetchFromServer() {
     const tables = ['stock', 'ventes', 'vendeurs', 'charges', 'dettes', 'defectueux',
                     'fournisseurs', 'clients', 'commandes', 'objectifs', 'retours', 'inventaires',
-                    'objectifs_perso'];
+                    'objectifs_perso', 'creances'];
     try {
       const test = await fetch(`${this._BASE}/stock`, {
         headers: this._headers(),
@@ -454,13 +454,14 @@ const EDIT = {
   chargeId:     null,
   detteId:      null,
   defectueuxId: null,
+  creanceId:    null,
 };
 
 // ============================================
 // PAGINATION
 // ============================================
 const PAGE_SIZE = 20;
-const PAGE = { ventes: 1, stock: 1, charges: 1, chargesBoutique: 1, chargesPerso: 1, dettes: 1, defectueux: 1 };
+const PAGE = { ventes: 1, stock: 1, charges: 1, chargesBoutique: 1, chargesPerso: 1, dettes: 1, defectueux: 1, creances: 1 };
 
 function paginate(items, table) {
   const total = items.length;
@@ -491,6 +492,7 @@ function changePage(table, dir) {
   if (table === 'charges')    renderCharges();
   if (table === 'dettes')     renderDettes();
   if (table === 'defectueux') renderDefectueux();
+  if (table === 'creances')   renderCreances();
 }
 
 function toast(msg, type = 'success', duration = 3500) {
@@ -599,7 +601,8 @@ const pageTitles = {
   retours:      'Retours Produits',
   inventaires:     'Inventaires',
   objectifs_perso: 'Mes Objectifs Personnels',
-  historique:      'Historique des Modifications'
+  historique:      'Historique des Modifications',
+  creances:        'Créances Vendeurs'
 };
 
 function navigateTo(page) {
@@ -630,6 +633,7 @@ function navigateTo(page) {
   if (page === 'inventaires')    renderInventaires();
   if (page === 'objectifs_perso') renderObjectifsPerso();
   if (page === 'historique')     renderHistorique();
+  if (page === 'creances')       renderCreances();
 }
 
 // ============================================
@@ -1735,6 +1739,151 @@ function markDettePaid(id) {
 }
 
 // ============================================
+// CRÉANCES VENDEURS
+// ============================================
+
+function _fillCreanceSelects() {
+  const vendeurs = DB.getAll('vendeurs');
+  const stock    = DB.getAll('stock');
+
+  const vendeurSel  = document.getElementById('creance-vendeur');
+  const produitSel  = document.getElementById('creance-produit');
+  const filterVend  = document.getElementById('filterCreanceVendeur');
+
+  if (vendeurSel) {
+    const cur = vendeurSel.value;
+    vendeurSel.innerHTML = '<option value="">-- Sélectionner un vendeur --</option>' +
+      vendeurs.map(v => `<option value="${escHtml(v.nom)}">${escHtml(v.nom)}</option>`).join('');
+    vendeurSel.value = cur;
+  }
+  if (produitSel) {
+    const cur = produitSel.value;
+    produitSel.innerHTML = '<option value="">-- Sélectionner un produit --</option>' +
+      stock.map(p => `<option value="${escHtml(p.nom)}">${escHtml(p.nom)}</option>`).join('');
+    produitSel.value = cur;
+  }
+  if (filterVend) {
+    const cur = filterVend.value;
+    filterVend.innerHTML = '<option value="">Tous les vendeurs</option>' +
+      vendeurs.map(v => `<option value="${escHtml(v.nom)}">${escHtml(v.nom)}</option>`).join('');
+    filterVend.value = cur;
+  }
+}
+
+function renderCreances() {
+  _fillCreanceSelects();
+  let creances = DB.getAll('creances');
+
+  const enAttenteItems = creances.filter(c => c.statut === 'En attente');
+  const montantDu = enAttenteItems.reduce((s, c) => s + (c.qty || 1) * (c.prix || 0), 0);
+  const paid = creances.filter(c => c.statut === 'Payé').length;
+
+  document.getElementById('creance-count').textContent   = fmtNum(enAttenteItems.length);
+  document.getElementById('creance-montant').textContent = fmt(montantDu);
+  document.getElementById('creance-paid').textContent    = fmtNum(paid);
+
+  const vendeurFilter = document.getElementById('filterCreanceVendeur').value;
+  const statutFilter  = document.getElementById('filterCreanceStatut').value;
+
+  if (vendeurFilter) creances = creances.filter(c => c.vendeur === vendeurFilter);
+  if (statutFilter)  creances = creances.filter(c => c.statut === statutFilter);
+  creances.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const tbody   = document.getElementById('creancesBody');
+  const paginEl = document.getElementById('creancesPageBar');
+
+  if (creances.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📒</div><p>Aucune créance trouvée</p></div></td></tr>`;
+    if (paginEl) paginEl.innerHTML = '';
+    return;
+  }
+
+  const { items: page, total: tot, pages, page: pg } = paginate(creances, 'creances');
+  tbody.innerHTML = page.map(c => {
+    const total = (c.qty || 1) * (c.prix || 0);
+    const isLate = c.statut === 'En attente' && new Date(c.date) < new Date(Date.now() - 30 * 86400000);
+    return `
+    <tr${isLate ? ' style="background:rgba(239,68,68,.06)"' : ''}>
+      <td data-label="Vendeur"><strong>${escHtml(c.vendeur || '—')}</strong>${isLate ? ' <span class="badge badge-danger">⏰ Retard</span>' : ''}</td>
+      <td data-label="Produit">${escHtml(c.produit || '—')}</td>
+      <td data-label="Qté">${fmtNum(c.qty || 1)}</td>
+      <td data-label="Prix Unit.">${fmt(c.prix || 0)}</td>
+      <td data-label="Total"><strong>${fmt(total)}</strong></td>
+      <td data-label="Date">${formatDate(c.date)}</td>
+      <td data-label="Statut">
+        <span class="badge ${c.statut === 'Payé' ? 'badge-success' : 'badge-warning'}">${escHtml(c.statut)}</span>
+      </td>
+      <td data-label="Actions">
+        ${c.statut === 'En attente' ? `<button class="btn btn-sm btn-success" onclick="markCreancePaid(${c.id})">✓ Réglé</button>` : ''}
+        <button class="btn-icon" onclick="openEditCreance(${c.id})">✏️</button>
+        <button class="btn-icon" onclick="confirmDelete('creances',${c.id},'la créance')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+  if (paginEl) paginEl.innerHTML = paginationBar('creances', pages, pg, tot);
+}
+
+function openAddCreance() {
+  EDIT.creanceId = null;
+  _fillCreanceSelects();
+  document.getElementById('modalCreanceTitle').textContent = 'Nouvelle Créance';
+  document.getElementById('creance-vendeur').value = '';
+  document.getElementById('creance-produit').value = '';
+  document.getElementById('creance-qty').value    = 1;
+  document.getElementById('creance-prix').value   = '';
+  document.getElementById('creance-date').value   = today();
+  document.getElementById('creance-statut').value = 'En attente';
+  document.getElementById('creance-note').value   = '';
+  showModal('modalCreance');
+}
+
+function openEditCreance(id) {
+  const c = DB.findById('creances', id);
+  if (!c) return;
+  EDIT.creanceId = id;
+  _fillCreanceSelects();
+  document.getElementById('modalCreanceTitle').textContent = 'Modifier Créance';
+  document.getElementById('creance-vendeur').value = c.vendeur || '';
+  document.getElementById('creance-produit').value = c.produit || '';
+  document.getElementById('creance-qty').value    = c.qty || 1;
+  document.getElementById('creance-prix').value   = c.prix || '';
+  document.getElementById('creance-date').value   = c.date || today();
+  document.getElementById('creance-statut').value = c.statut || 'En attente';
+  document.getElementById('creance-note').value   = c.note || '';
+  showModal('modalCreance');
+}
+
+function saveCreance() {
+  const vendeur = document.getElementById('creance-vendeur').value;
+  const produit = document.getElementById('creance-produit').value;
+  const qty     = parseInt(document.getElementById('creance-qty').value, 10);
+  const prix    = parseFloat(document.getElementById('creance-prix').value);
+  const date    = document.getElementById('creance-date').value;
+  const statut  = document.getElementById('creance-statut').value;
+  const note    = document.getElementById('creance-note').value.trim();
+
+  if (!vendeur || !produit || isNaN(qty) || qty <= 0 || isNaN(prix) || prix < 0 || !date) {
+    toast('Veuillez remplir tous les champs obligatoires.', 'error'); return;
+  }
+
+  if (EDIT.creanceId) {
+    DB.update('creances', EDIT.creanceId, { vendeur, produit, qty, prix, date, statut, note });
+    toast('Créance modifiée.');
+  } else {
+    DB.insert('creances', { vendeur, produit, qty, prix, date, statut, note });
+    toast('Créance ajoutée.');
+  }
+  hideModal('modalCreance');
+  renderCreances();
+}
+
+function markCreancePaid(id) {
+  DB.update('creances', id, { statut: 'Payé' });
+  toast('Créance marquée comme réglée.');
+  renderCreances();
+}
+
+// ============================================
 // DÉFECTUEUX
 // ============================================
 
@@ -2273,6 +2422,7 @@ function exportCSV(table) {
     dettes:      ['Nom', 'Type', 'Montant', 'Date', 'Statut'],
     vendeurs:    ['Nom'],
     defectueux:  ['Date', 'Produit', 'Qté', 'Problème', 'Solution', 'Statut'],
+    creances:    ['Vendeur', 'Produit', 'Qté', 'Prix Unitaire', 'Total', 'Date', 'Statut', 'Note'],
   };
   const ROWS = {
     ventes:      d => [d.date, d.produit, d.qty, d.pa, d.pv, d.gain, d.vendeur || '', d.stockAvant ?? '', d.stockApres ?? ''],
@@ -2281,6 +2431,7 @@ function exportCSV(table) {
     dettes:      d => [d.nom, d.type || '', d.montant, d.date || '', d.statut],
     vendeurs:    d => [d.nom],
     defectueux:  d => [d.date, d.produit, d.qty, d.probleme, d.solution || '', d.statut],
+    creances:    d => [d.vendeur || '', d.produit || '', d.qty || 1, d.prix || 0, (d.qty || 1) * (d.prix || 0), d.date || '', d.statut, d.note || ''],
   };
 
   const data = DB.getAll(table);
@@ -2572,6 +2723,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnAddVendeur').addEventListener('click', openAddVendeur);
   document.getElementById('btnAddCharge').addEventListener('click', openAddCharge);
   document.getElementById('btnAddDette').addEventListener('click', openAddDette);
+  document.getElementById('btnAddCreance').addEventListener('click', openAddCreance);
   document.getElementById('btnAddRecuLigne').addEventListener('click', () => { recuLignes.push({ produit: '', qty: 1, pu: 0 }); renderRecuLignes(); });
   document.getElementById('btnPrintRecu').addEventListener('click', printRecu);
   document.getElementById('btnAddDefectueux').addEventListener('click', openAddDefectueux);
@@ -2583,6 +2735,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('saveVendeur').addEventListener('click', saveVendeur);
   document.getElementById('saveCharge').addEventListener('click', saveCharge);
   document.getElementById('saveDette').addEventListener('click', saveDette);
+  document.getElementById('saveCreance').addEventListener('click', saveCreance);
   document.getElementById('saveDefectueux').addEventListener('click', saveDefectueux);
 
   // Calcul gain en temps réel
@@ -2645,6 +2798,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filterDetteType').value = '';
     document.getElementById('filterDetteStatus').value = '';
     renderDettes();
+  });
+
+  // Filtres Créances
+  document.getElementById('filterCreanceVendeur').addEventListener('change', renderCreances);
+  document.getElementById('filterCreanceStatut').addEventListener('change', renderCreances);
+  document.getElementById('filterCreanceReset').addEventListener('click', () => {
+    document.getElementById('filterCreanceVendeur').value = '';
+    document.getElementById('filterCreanceStatut').value = '';
+    renderCreances();
   });
 
   // Filtres Défectueux

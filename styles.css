@@ -1261,6 +1261,36 @@ body {
   /* Fallback sans :has() */
   #stockBody td:not([data-label]) { display: block; overflow: visible; }
 
+  /* ---- Créances mobile grid ---- */
+  #creancesBody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  #creancesBody td { display: block; padding: 0; border-bottom: none; }
+  #creancesBody td[data-label="Vendeur"]   { grid-column: 1; grid-row: 1; font-size: .93rem; }
+  #creancesBody td[data-label="Statut"]    { grid-column: 2; grid-row: 1; align-self: center; }
+  #creancesBody td[data-label="Vendeur"]::before  { display: none; }
+  #creancesBody td[data-label="Statut"]::before   { display: none; }
+  #creancesBody td[data-label="Produit"]   { grid-column: 1 / -1; grid-row: 2; }
+  #creancesBody td[data-label="Qté"]       { grid-column: 1; grid-row: 3; }
+  #creancesBody td[data-label="Prix Unit."]{ grid-column: 2; grid-row: 3; text-align: right; }
+  #creancesBody td[data-label="Total"]     { grid-column: 1 / -1; grid-row: 4; border-top: 1px solid var(--border); padding-top: 4px; }
+  #creancesBody td[data-label="Date"]      { grid-column: 1; grid-row: 5; }
+  #creancesBody td[data-label="Actions"]   {
+    grid-column: 1 / -1; grid-row: 6;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;
+  }
+  #creancesBody td[data-label="Actions"]::before { display: none; }
+  #creancesBody td[data-label="Actions"] .btn     { flex: 1; justify-content: center; min-height: 40px; }
+  #creancesBody td[data-label="Actions"] .btn-icon { flex: 0 0 auto; min-height: 40px; min-width: 40px; }
+  #creancesBody tr:has(.empty-state) { display: block; }
+  #creancesBody tr:has(.empty-state) td { display: block; overflow: visible; }
+  #creancesBody td:not([data-label]) { display: block; overflow: visible; }
+
   /* ---- Toast ---- */
   .toast-container { bottom: 12px; right: 10px; left: 10px; }
   .toast { max-width: 100%; font-size: .85rem; }

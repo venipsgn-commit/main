@@ -737,26 +737,33 @@
   <section class="page" id="page-chatbot">
     <div class="page-header">
       <h2>🤖 Assistant IA – Analyse de Boutique</h2>
-      <p>Posez vos questions sur votre boutique, ventes, stock et finances.</p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-secondary btn-sm" id="chatClearBtn">🗑️ Effacer</button>
+      </div>
     </div>
 
-    <div class="chatbot-suggestions">
-      <button class="suggestion-btn" data-q="Donne-moi une analyse générale de ma boutique">📊 Analyse générale</button>
-      <button class="suggestion-btn" data-q="Quels sont mes produits les plus rentables ?">💰 Produits rentables</button>
-      <button class="suggestion-btn" data-q="Quel est mon bénéfice net ce mois ?">📈 Bénéfice du mois</button>
-      <button class="suggestion-btn" data-q="Quels produits sont en rupture de stock ?">📦 Ruptures de stock</button>
-      <button class="suggestion-btn" data-q="Résume mes dettes en cours">🤝 Dettes en cours</button>
+    <div class="chatbot-topics">
+      <button class="topic-btn active" data-topic="finances">💰 Finances</button>
+      <button class="topic-btn" data-topic="stock">📦 Stock</button>
+      <button class="topic-btn" data-topic="ventes">🛒 Ventes</button>
+      <button class="topic-btn" data-topic="equipe">👨‍💼 Équipe</button>
+      <button class="topic-btn" data-topic="creances">📒 Créances</button>
+      <button class="topic-btn" data-topic="autre">🔧 Autre</button>
+    </div>
+
+    <div class="chatbot-suggestions" id="chatSuggestions">
+      <!-- filled by JS per topic -->
     </div>
 
     <div class="chatbot-window" id="chatbotWindow">
       <div class="chat-message bot">
-        <div class="chat-bubble">Bonjour ! Je suis votre assistant IA VENIPS. Je peux analyser vos ventes, stock, charges et finances en temps réel. Que voulez-vous savoir ?</div>
+        <div class="chat-bubble">Bonjour ! Je suis votre assistant IA VENIPS. Choisissez un thème ou posez directement votre question sur vos ventes, stock, finances et plus.</div>
       </div>
     </div>
 
     <div class="chatbot-input-bar">
-      <input type="text" id="chatInput" placeholder="Ex: Quel est mon chiffre d'affaires ce mois ?" />
-      <button class="btn btn-primary" id="chatSendBtn">Envoyer</button>
+      <input type="text" id="chatInput" placeholder="Ex: Quel produit se vend le mieux ce mois ?" />
+      <button class="btn btn-primary" id="chatSendBtn">➤</button>
     </div>
   </section>
 

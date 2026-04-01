@@ -3047,13 +3047,93 @@ function globalSearch(query) {
   const window_  = document.getElementById('chatbotWindow');
   const input    = document.getElementById('chatInput');
   const sendBtn  = document.getElementById('chatSendBtn');
+  const clearBtn = document.getElementById('chatClearBtn');
+  const sugBox   = document.getElementById('chatSuggestions');
+
+  const TOPICS = {
+    finances: [
+      { label: '📊 Analyse générale',      q: 'Donne-moi une analyse générale de ma boutique' },
+      { label: '📈 Bénéfice net',           q: 'Quel est mon bénéfice net ?' },
+      { label: '💰 Chiffre d\'affaires',   q: 'Quel est mon chiffre d\'affaires ce mois ?' },
+      { label: '💸 Mes charges',            q: 'Résume mes charges' },
+      { label: '🤝 Dettes en cours',        q: 'Résume mes dettes en cours' },
+      { label: '📅 Comparer mois',          q: 'Compare les ventes du mois actuel avec le mois précédent' },
+    ],
+    stock: [
+      { label: '📦 État du stock',          q: 'Quel est l\'état de mon stock ?' },
+      { label: '🔴 Ruptures de stock',      q: 'Quels produits sont en rupture de stock ?' },
+      { label: '🟡 Stock faible',           q: 'Quels produits ont un stock faible ?' },
+      { label: '💡 Produits rentables',     q: 'Quels sont mes produits les plus rentables ?' },
+      { label: '⚠️ Défectueux',            q: 'Résume mes produits défectueux' },
+      { label: '🔍 Inventaire',             q: 'Résume les derniers inventaires' },
+    ],
+    ventes: [
+      { label: '🛒 Ventes du jour',         q: 'Quelles sont mes ventes d\'aujourd\'hui ?' },
+      { label: '📅 Ventes du mois',         q: 'Résume mes ventes de ce mois' },
+      { label: '🏆 Meilleure journée',      q: 'Quelle est ma meilleure journée de ventes ?' },
+      { label: '↩️ Retours',               q: 'Résume mes retours produits' },
+      { label: '📋 Commandes fournisseurs', q: 'Résume mes commandes fournisseurs' },
+      { label: '🎯 Objectifs',              q: 'Comment avancent mes objectifs de ventes ?' },
+    ],
+    equipe: [
+      { label: '👨‍💼 Performance vendeurs',  q: 'Quelle est la performance de mes vendeurs ?' },
+      { label: '🥇 Meilleur vendeur',       q: 'Qui est mon meilleur vendeur ?' },
+      { label: '🏭 Fournisseurs',           q: 'Liste mes fournisseurs' },
+      { label: '👥 Clients',               q: 'Résume mes clients enregistrés' },
+    ],
+    creances: [
+      { label: '📒 Créances en attente',    q: 'Quelles sont les créances vendeurs en attente ?' },
+      { label: '💵 Montant total dû',       q: 'Quel est le montant total que les vendeurs me doivent ?' },
+      { label: '⏰ Créances en retard',     q: 'Quelles créances vendeurs sont en retard ?' },
+    ],
+    autre: [
+      { label: '❓ Aide',                  q: 'Que peux-tu faire ?' },
+      { label: '📊 Rapport complet',       q: 'Génère un rapport complet de ma boutique' },
+      { label: '⚠️ Alertes importantes',   q: 'Quelles sont les alertes importantes pour ma boutique ?' },
+      { label: '💡 Conseils',              q: 'Donne-moi des conseils pour améliorer ma boutique' },
+    ],
+  };
+
+  function renderSuggestions(topic) {
+    const btns = TOPICS[topic] || [];
+    sugBox.innerHTML = btns.map(b =>
+      `<button class="suggestion-btn" data-q="${escHtml(b.q)}">${b.label}</button>`
+    ).join('');
+    sugBox.querySelectorAll('.suggestion-btn').forEach(btn => {
+      btn.addEventListener('click', () => sendMessage(btn.dataset.q));
+    });
+  }
+
+  // Topic tabs
+  document.querySelectorAll('.topic-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.topic-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderSuggestions(btn.dataset.topic);
+    });
+  });
+
+  // Init with first topic
+  renderSuggestions('finances');
+
+  // Format bot reply: **bold**, lines starting with • or digit. → list items
+  function formatReply(text) {
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  }
 
   function addMessage(text, role) {
     const div = document.createElement('div');
     div.className = `chat-message ${role}`;
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
-    bubble.textContent = text;
+    if (role === 'bot') {
+      bubble.innerHTML = formatReply(text);
+    } else {
+      bubble.textContent = text;
+    }
     div.appendChild(bubble);
     window_.appendChild(div);
     window_.scrollTop = window_.scrollHeight;
@@ -3066,7 +3146,7 @@ function globalSearch(query) {
     input.value = '';
     sendBtn.disabled = true;
 
-    const typing = addMessage('En train d\'analyser vos données...', 'typing');
+    const typing = addMessage('⏳ Analyse en cours...', 'typing');
 
     try {
       const res = await fetch('/api/chat', {
@@ -3079,21 +3159,23 @@ function globalSearch(query) {
       addMessage(data.reply || 'Désolé, une erreur s\'est produite.', 'bot');
     } catch {
       typing.remove();
-      addMessage('Erreur de connexion. Vérifiez votre connexion internet.', 'bot');
+      addMessage('❌ Erreur de connexion. Vérifiez votre connexion internet.', 'bot');
     } finally {
       sendBtn.disabled = false;
       input.focus();
     }
   }
 
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      window_.innerHTML = `<div class="chat-message bot"><div class="chat-bubble">Conversation effacée. Comment puis-je vous aider ?</div></div>`;
+    });
+  }
+
   if (sendBtn) {
     sendBtn.addEventListener('click', () => sendMessage(input.value));
     input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(input.value); });
   }
-
-  document.querySelectorAll('.suggestion-btn').forEach(btn => {
-    btn.addEventListener('click', () => sendMessage(btn.dataset.q));
-  });
 })();
 
 // ============================================

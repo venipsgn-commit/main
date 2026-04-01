@@ -1371,19 +1371,44 @@ body.dark .combo-option:hover { background: #334155; }
 /* ============================================
    CHATBOT
    ============================================ */
+/* Topic tabs */
+.chatbot-topics {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.topic-btn {
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  color: var(--muted);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+}
+.topic-btn:hover { border-color: var(--primary); color: var(--primary); }
+.topic-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--white);
+}
 .chatbot-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 7px;
+  margin-bottom: 14px;
+  min-height: 36px;
 }
 .suggestion-btn {
   background: var(--white);
   border: 1.5px solid var(--primary);
   color: var(--primary);
   border-radius: 20px;
-  padding: 6px 14px;
-  font-size: .85rem;
+  padding: 5px 13px;
+  font-size: .82rem;
   cursor: pointer;
   transition: var(--transition);
   font-weight: 500;

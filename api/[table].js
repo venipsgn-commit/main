@@ -1,28 +1,9 @@
 'use strict';
 
-const crypto = require('crypto');
+const { isValidToken, getUsername } = require('./_auth');
 
 // GET  /api/:table  → tous les enregistrements
 // POST /api/:table  → valide + insère un enregistrement
-
-const USERS = ['VENIPS', 'JACOB'];
-
-function isValidToken(req) {
-  const token = req.headers['x-venips-token'];
-  if (!token) return false;
-  const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
-  return USERS.some(u => crypto.createHmac('sha256', secret).update(u).digest('hex') === token);
-}
-
-function getUsername(req) {
-  const token = req.headers['x-venips-token'];
-  if (!token) return 'Inconnu';
-  const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
-  for (const u of USERS) {
-    if (crypto.createHmac('sha256', secret).update(u).digest('hex') === token) return u;
-  }
-  return 'Inconnu';
-}
 
 // ── Validation par table ───────────────────────────────────────────────────
 function validate(table, record) {

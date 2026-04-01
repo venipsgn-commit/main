@@ -72,10 +72,11 @@ const AUTH = {
         signal: AbortSignal.timeout(4000)
       });
       if (r.ok) {
-        const { token } = await r.json();
+        const { token, expires } = await r.json();
         const profile = this.ROLE_MAP[username] || { role: 'vendeur', display: username };
         sessionStorage.setItem(this.KEY, JSON.stringify({ username, ...profile }));
         sessionStorage.setItem('venips_token', token);
+        if (expires) sessionStorage.setItem('venips_token_expires', String(expires));
         // Sauvegarder pour le fallback offline
         await this._saveOfflineCreds(username, password);
         return 'online';
@@ -98,8 +99,20 @@ const AUTH = {
   logout() {
     sessionStorage.removeItem(this.KEY);
     sessionStorage.removeItem('venips_token');
+    sessionStorage.removeItem('venips_token_expires');
   },
-  getToken() { return sessionStorage.getItem('venips_token') || ''; }
+  isTokenExpired() {
+    const exp = sessionStorage.getItem('venips_token_expires');
+    if (!exp) return false; // no expiry stored = offline token, don't expire
+    return Date.now() > Number(exp);
+  },
+  getToken() {
+    if (this.isTokenExpired()) {
+      this.logout();
+      return '';
+    }
+    return sessionStorage.getItem('venips_token') || '';
+  }
 };
 
 (function initAuth() {

@@ -1,16 +1,11 @@
 'use strict';
 
-const crypto = require('crypto');
+const { makeToken } = require('./_auth');
 
 const USERS = [
   { username: 'VENIPS', password: 'venips224@' },
   { username: 'JACOB',  password: 'compilateur787' }
 ];
-
-function makeToken(username) {
-  const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
-  return crypto.createHmac('sha256', secret).update(username).digest('hex');
-}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -20,5 +15,7 @@ module.exports = async function handler(req, res) {
 
   if (!user) return res.status(401).json({ error: 'Identifiants incorrects' });
 
-  return res.status(200).json({ token: makeToken(username) });
+  const token   = makeToken(username);
+  const expires = Date.now() + 24 * 60 * 60 * 1000; // expiry timestamp for client
+  return res.status(200).json({ token, expires });
 };

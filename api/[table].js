@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 
 // GET  /api/:table  → tous les enregistrements
-// POST /api/:table  → insérer un enregistrement
+// POST /api/:table  → valide + insère un enregistrement
 
 const USERS = ['VENIPS', 'JACOB'];
 
@@ -24,24 +24,93 @@ function getUsername(req) {
   return 'Inconnu';
 }
 
+// ── Validation par table ───────────────────────────────────────────────────
+function validate(table, record) {
+  switch (table) {
+    case 'stock':
+      if (!record.nom || record.nom.trim() === '')
+        return 'Nom du produit obligatoire.';
+      if (record.pa === undefined || record.pa === null || record.pa < 0)
+        return 'Prix d\'achat invalide (doit être ≥ 0).';
+      if (record.pv === undefined || record.pv === null || record.pv < 0)
+        return 'Prix de vente invalide (doit être ≥ 0).';
+      if ((record.qtyInitial ?? record.qty ?? -1) < 0)
+        return 'Quantité initiale invalide (doit être ≥ 0).';
+      break;
+    case 'charges':
+      if (!record.montant || record.montant <= 0)
+        return 'Montant de la charge invalide (doit être > 0).';
+      if (!record.date)
+        return 'Date de la charge obligatoire.';
+      break;
+    case 'dettes':
+      if (!record.nom || record.nom.trim() === '')
+        return 'Nom / Prénom obligatoire.';
+      if (!record.montant || record.montant <= 0)
+        return 'Montant de la dette invalide (doit être > 0).';
+      if (!record.date)
+        return 'Date obligatoire.';
+      if (!record.type)
+        return 'Type de dette obligatoire.';
+      break;
+    case 'creances':
+      if (!record.vendeur || record.vendeur.trim() === '')
+        return 'Vendeur obligatoire.';
+      if (!record.produit || record.produit.trim() === '')
+        return 'Produit obligatoire.';
+      if (!record.qty || record.qty <= 0)
+        return 'Quantité invalide (doit être > 0).';
+      if (record.prix === undefined || record.prix === null || record.prix < 0)
+        return 'Prix unitaire invalide (doit être ≥ 0).';
+      if (!record.date)
+        return 'Date obligatoire.';
+      break;
+    case 'defectueux':
+      if (!record.produit || record.produit.trim() === '')
+        return 'Produit obligatoire.';
+      if (!record.qty || record.qty <= 0)
+        return 'Quantité invalide (doit être > 0).';
+      if (!record.date)
+        return 'Date obligatoire.';
+      break;
+    case 'vendeurs':
+      if (!record.nom || record.nom.trim() === '')
+        return 'Nom du vendeur obligatoire.';
+      break;
+    case 'fournisseurs':
+      if (!record.nom || record.nom.trim() === '')
+        return 'Nom du fournisseur obligatoire.';
+      break;
+    case 'clients':
+      if (!record.nom || record.nom.trim() === '')
+        return 'Nom du client obligatoire.';
+      break;
+    case 'retours':
+      if (!record.produit || record.produit.trim() === '')
+        return 'Produit obligatoire.';
+      if (!record.qte || record.qte <= 0)
+        return 'Quantité invalide (doit être > 0).';
+      if (!record.date)
+        return 'Date obligatoire.';
+      break;
+  }
+  return null; // ok
+}
+
 async function writeLog(supabaseUrl, headers, username, action, tableName, recordId, details) {
   try {
     const logId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
     const logData = {
-      id: logId,
-      timestamp: new Date().toISOString(),
-      username,
-      action,
-      tableName,
+      id: logId, timestamp: new Date().toISOString(),
+      username, action, tableName,
       recordId: String(recordId || ''),
       details: typeof details === 'string' ? details : JSON.stringify(details)
     };
     await fetch(`${supabaseUrl}/rest/v1/records`, {
-      method: 'POST',
-      headers,
+      method: 'POST', headers,
       body: JSON.stringify({ table_name: 'logs', id: logId, data: logData })
     });
-  } catch { /* ne pas bloquer l'opération principale */ }
+  } catch {}
 }
 
 module.exports = async function handler(req, res) {
@@ -72,16 +141,21 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(Array.isArray(rows) ? rows.map(r => r.data) : []);
   }
 
-  // ── POST : insérer un enregistrement ─────────────────────────────────────
+  // ── POST : valider + insérer un enregistrement ────────────────────────────
   if (req.method === 'POST') {
     const record = req.body;
+
+    // Validation (sauf pour logs et tables système)
+    if (table !== 'logs') {
+      const err = validate(table, record);
+      if (err) return res.status(400).json({ error: err });
+    }
+
     await fetch(`${SUPABASE_URL}/rest/v1/records`, {
-      method: 'POST',
-      headers,
+      method: 'POST', headers,
       body: JSON.stringify({ table_name: table, id: record.id, data: record })
     });
 
-    // Logger l'ajout (sauf pour la table logs elle-même)
     if (table !== 'logs') {
       const username = getUsername(req);
       writeLog(SUPABASE_URL, headers, username, 'AJOUT', table, record.id, record);
@@ -91,4 +165,4 @@ module.exports = async function handler(req, res) {
   }
 
   res.status(405).json({ error: 'Méthode non autorisée' });
-}
+};

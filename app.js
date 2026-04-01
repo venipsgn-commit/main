@@ -1981,15 +1981,7 @@ function openAddDefectueux() {
   document.getElementById('def-statut').value  = 'En attente';
   document.getElementById('def-probleme').value = '';
   document.getElementById('def-solution').value = '';
-  // Remplir la liste des produits
-  const sel = document.getElementById('def-produit');
-  sel.innerHTML = '<option value="">-- Sélectionner --</option>';
-  DB.getAll('stock').forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.nom;
-    opt.textContent = p.nom;
-    sel.appendChild(opt);
-  });
+  initProductCombo('def-produit-search', 'def-produit-list', 'def-produit', '', null);
   showModal('modalDefectueux');
 }
 
@@ -2003,15 +1995,7 @@ function openEditDefectueux(id) {
   document.getElementById('def-statut').value   = d.statut;
   document.getElementById('def-probleme').value = d.probleme;
   document.getElementById('def-solution').value = d.solution || '';
-  const sel = document.getElementById('def-produit');
-  sel.innerHTML = '<option value="">-- Sélectionner --</option>';
-  DB.getAll('stock').forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.nom;
-    opt.textContent = p.nom;
-    if (p.nom === d.produit) opt.selected = true;
-    sel.appendChild(opt);
-  });
+  initProductCombo('def-produit-search', 'def-produit-list', 'def-produit', d.produit || '', null);
   showModal('modalDefectueux');
 }
 
@@ -2196,7 +2180,8 @@ function renderRecus() {
 
 function renderRecuLignes() {
   const stock = DB.getAll('stock');
-  const options = stock.map(s => `<option value="${escHtml(s.nom)}" data-pu="${s.pv}">${escHtml(s.nom)}</option>`).join('');
+  const options = [...stock].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }))
+    .map(s => `<option value="${escHtml(s.nom)}" data-pu="${s.pv}">${escHtml(s.nom)}</option>`).join('');
   const tbody = document.getElementById('recuLignesBody');
   tbody.innerHTML = recuLignes.map((l, i) => `
     <tr>
@@ -3588,7 +3573,9 @@ document.getElementById('filterCommande')?.addEventListener('input', renderComma
 let _cmdLignes = [];
 
 function _cmdStockOptions() {
-  return DB.getAll('stock').map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+  return [...DB.getAll('stock')]
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }))
+    .map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
 }
 
 function cmdAddLigne(ligne) {
@@ -4003,20 +3990,11 @@ function renderRetours() {
 document.getElementById('filterRetourStatut')?.addEventListener('change', renderRetours);
 document.getElementById('filterRetour')?.addEventListener('input', renderRetours);
 
-function _fillRetourProduitSelect() {
-  const sel = document.getElementById('ret-produit');
-  if (!sel) return;
-  const stock = DB.getAll('stock');
-  sel.innerHTML = '<option value="">-- Sélectionner --</option>' +
-    stock.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
-}
-
 function openAddRetour() {
   _editRetourId = null;
   document.getElementById('modalRetourTitle').textContent = 'Nouveau Retour';
-  _fillRetourProduitSelect();
+  initProductCombo('ret-produit-search', 'ret-produit-list', 'ret-produit', '', null);
   document.getElementById('ret-date').value    = new Date().toISOString().slice(0, 10);
-  document.getElementById('ret-produit').value = '';
   document.getElementById('ret-qte').value     = '1';
   document.getElementById('ret-type').value    = 'Remboursement';
   document.getElementById('ret-statut').value  = 'En attente';
@@ -4030,9 +4008,8 @@ function openEditRetour(id) {
   if (!r) return;
   _editRetourId = id;
   document.getElementById('modalRetourTitle').textContent = 'Modifier Retour';
-  _fillRetourProduitSelect();
+  initProductCombo('ret-produit-search', 'ret-produit-list', 'ret-produit', r.produit || '', null);
   document.getElementById('ret-date').value    = r.date    || '';
-  document.getElementById('ret-produit').value = r.produit || '';
   document.getElementById('ret-qte').value     = r.qte     || 1;
   document.getElementById('ret-type').value    = r.type    || 'Remboursement';
   document.getElementById('ret-statut').value  = r.statut  || 'En attente';
@@ -4120,28 +4097,18 @@ function _calcQteTheorique(produitNom) {
   return (stock.qtyInitial || 0) - vendus - defect;
 }
 
-function _fillInvProduitSelect() {
-  const sel = document.getElementById('inv-produit');
-  if (!sel) return;
-  const stock = DB.getAll('stock');
-  sel.innerHTML = '<option value="">-- Sélectionner --</option>' +
-    stock.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
-  sel.onchange = () => {
-    const theorique = _calcQteTheorique(sel.value);
-    const el = document.getElementById('inv-theorique');
-    if (el) el.value = theorique;
-  };
-}
-
 function openAddInventaire() {
   _editInventaireId = null;
   document.getElementById('modalInventaireTitle').textContent = 'Nouvel Inventaire';
-  _fillInvProduitSelect();
-  document.getElementById('inv-date').value     = new Date().toISOString().slice(0, 10);
-  document.getElementById('inv-produit').value  = '';
+  document.getElementById('inv-date').value      = new Date().toISOString().slice(0, 10);
   document.getElementById('inv-theorique').value = '';
-  document.getElementById('inv-reelle').value   = '';
-  document.getElementById('inv-notes').value    = '';
+  document.getElementById('inv-reelle').value    = '';
+  document.getElementById('inv-notes').value     = '';
+  initProductCombo('inv-produit-search', 'inv-produit-list', 'inv-produit', '', () => {
+    const nom = document.getElementById('inv-produit').value;
+    const el  = document.getElementById('inv-theorique');
+    if (el) el.value = _calcQteTheorique(nom);
+  });
   document.getElementById('modalInventaire').classList.add('open');
 }
 
@@ -4150,12 +4117,15 @@ function openEditInventaire(id) {
   if (!inv) return;
   _editInventaireId = id;
   document.getElementById('modalInventaireTitle').textContent = 'Modifier Inventaire';
-  _fillInvProduitSelect();
   document.getElementById('inv-date').value      = inv.date         || '';
-  document.getElementById('inv-produit').value   = inv.produit      || '';
   document.getElementById('inv-theorique').value = inv.qteTheorique || 0;
   document.getElementById('inv-reelle').value    = inv.qteReelle    || 0;
   document.getElementById('inv-notes').value     = inv.notes        || '';
+  initProductCombo('inv-produit-search', 'inv-produit-list', 'inv-produit', inv.produit || '', () => {
+    const nom = document.getElementById('inv-produit').value;
+    const el  = document.getElementById('inv-theorique');
+    if (el) el.value = _calcQteTheorique(nom);
+  });
   document.getElementById('modalInventaire').classList.add('open');
 }
 

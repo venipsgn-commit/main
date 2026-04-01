@@ -1307,9 +1307,11 @@
         </div>
         <div class="form-group">
           <label>Produit *</label>
-          <select id="def-produit" class="filter-input" style="width:100%">
-            <option value="">-- Sélectionner --</option>
-          </select>
+          <div class="combo-box">
+            <input type="text" class="combo-input" id="def-produit-search" placeholder="🔍 Chercher un produit..." autocomplete="off" />
+            <div class="combo-dropdown" id="def-produit-list"></div>
+          </div>
+          <input type="hidden" id="def-produit" />
         </div>
         <div class="form-group">
           <label>Quantité défectueuse *</label>
@@ -1548,9 +1550,11 @@
         </div>
         <div class="form-group">
           <label>Produit *</label>
-          <select id="ret-produit" required>
-            <option value="">-- Sélectionner --</option>
-          </select>
+          <div class="combo-box">
+            <input type="text" class="combo-input" id="ret-produit-search" placeholder="🔍 Chercher un produit..." autocomplete="off" />
+            <div class="combo-dropdown" id="ret-produit-list"></div>
+          </div>
+          <input type="hidden" id="ret-produit" />
         </div>
         <div class="form-group">
           <label>Quantité *</label>
@@ -1603,9 +1607,11 @@
         </div>
         <div class="form-group">
           <label>Produit *</label>
-          <select id="inv-produit" required>
-            <option value="">-- Sélectionner --</option>
-          </select>
+          <div class="combo-box">
+            <input type="text" class="combo-input" id="inv-produit-search" placeholder="🔍 Chercher un produit..." autocomplete="off" />
+            <div class="combo-dropdown" id="inv-produit-list"></div>
+          </div>
+          <input type="hidden" id="inv-produit" />
         </div>
         <div class="form-group">
           <label>Qté Théorique (calculée)</label>

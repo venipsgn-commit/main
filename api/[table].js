@@ -14,6 +14,36 @@ function isValidToken(req) {
   return USERS.some(u => crypto.createHmac('sha256', secret).update(u).digest('hex') === token);
 }
 
+function getUsername(req) {
+  const token = req.headers['x-venips-token'];
+  if (!token) return 'Inconnu';
+  const secret = process.env.VENIPS_API_SECRET || 'venips-default-secret';
+  for (const u of USERS) {
+    if (crypto.createHmac('sha256', secret).update(u).digest('hex') === token) return u;
+  }
+  return 'Inconnu';
+}
+
+async function writeLog(supabaseUrl, headers, username, action, tableName, recordId, details) {
+  try {
+    const logId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    const logData = {
+      id: logId,
+      timestamp: new Date().toISOString(),
+      username,
+      action,
+      tableName,
+      recordId: String(recordId || ''),
+      details: typeof details === 'string' ? details : JSON.stringify(details)
+    };
+    await fetch(`${supabaseUrl}/rest/v1/records`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ table_name: 'logs', id: logId, data: logData })
+    });
+  } catch { /* ne pas bloquer l'opération principale */ }
+}
+
 module.exports = async function handler(req, res) {
   if (!isValidToken(req)) return res.status(401).json({ error: 'Non autorisé' });
 
@@ -50,6 +80,13 @@ module.exports = async function handler(req, res) {
       headers,
       body: JSON.stringify({ table_name: table, id: record.id, data: record })
     });
+
+    // Logger l'ajout (sauf pour la table logs elle-même)
+    if (table !== 'logs') {
+      const username = getUsername(req);
+      writeLog(SUPABASE_URL, headers, username, 'AJOUT', table, record.id, record);
+    }
+
     return res.status(201).json(record);
   }
 

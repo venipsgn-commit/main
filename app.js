@@ -2939,7 +2939,12 @@ async function renderHistorique() {
     if (tableFilter)  logs = logs.filter(l => l.tableName === tableFilter);
 
     const actionColors = { AJOUT: 'badge-success', MODIFICATION: 'badge-warning', SUPPRESSION: 'badge-danger' };
-    const tableNames   = { ventes: 'Ventes', stock: 'Stock', charges: 'Charges', dettes: 'Dettes', defectueux: 'Défectueux', vendeurs: 'Vendeurs' };
+    const tableNames   = {
+      ventes: 'Ventes', stock: 'Stock', charges: 'Charges', dettes: 'Dettes',
+      defectueux: 'Défectueux', vendeurs: 'Vendeurs', creances: 'Créances',
+      retours: 'Retours', inventaires: 'Inventaires', fournisseurs: 'Fournisseurs',
+      clients: 'Clients', commandes: 'Commandes', objectifs: 'Objectifs'
+    };
 
     if (logs.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune entrée dans l'historique</p></div></td></tr>`;
@@ -2969,10 +2974,23 @@ async function renderHistorique() {
         ? formatDate(detailsObj.date)
         : (isVente ? '—' : '<span style="color:var(--muted)">—</span>');
 
-      // Résumé détails
-      const detailsText = isVente && detailsObj?.produit
-        ? `${escHtml(detailsObj.produit)}${detailsObj.qty ? ' ×' + detailsObj.qty : ''}`
-        : escHtml(l.details || '—');
+      // Résumé détails selon la table
+      let detailsText = '—';
+      if (detailsObj) {
+        if (l.tableName === 'ventes')      detailsText = detailsObj.produit ? `${escHtml(detailsObj.produit)}${detailsObj.qty ? ' ×'+detailsObj.qty : ''}` : '—';
+        else if (l.tableName === 'stock')  detailsText = detailsObj.nom ? escHtml(detailsObj.nom) : '—';
+        else if (l.tableName === 'charges') detailsText = detailsObj.montant ? `${escHtml(detailsObj.type||'')} ${fmt(detailsObj.montant)}` : '—';
+        else if (l.tableName === 'dettes') detailsText = detailsObj.nom ? `${escHtml(detailsObj.nom)} — ${fmt(detailsObj.montant)}` : '—';
+        else if (l.tableName === 'defectueux') detailsText = detailsObj.produit ? escHtml(detailsObj.produit) : '—';
+        else if (l.tableName === 'creances') detailsText = detailsObj.vendeur ? `${escHtml(detailsObj.vendeur)} → ${escHtml(detailsObj.produit||'')}` : '—';
+        else if (l.tableName === 'retours') detailsText = detailsObj.produit ? escHtml(detailsObj.produit) : '—';
+        else if (l.tableName === 'vendeurs') detailsText = detailsObj.nom ? escHtml(detailsObj.nom) : '—';
+        else if (l.tableName === 'fournisseurs') detailsText = detailsObj.nom ? escHtml(detailsObj.nom) : '—';
+        else if (l.tableName === 'clients') detailsText = detailsObj.nom ? escHtml(detailsObj.nom) : '—';
+        else detailsText = escHtml(l.details || '—');
+      } else {
+        detailsText = escHtml(l.details || '—');
+      }
 
       // Ligne cliquable pour les ventes → naviguer vers la page Ventes
       const rowAttrs = isVente

@@ -3653,11 +3653,11 @@ function renderCommandes() {
   if (summaryBar) {
     summaryBar.style.display = all.length ? 'flex' : 'none';
     summaryBar.innerHTML = `
-      <span>📋 <strong>${all.length}</strong> commande(s)</span>
-      <span style="color:var(--primary);font-weight:700;">💰 Total : ${fmt(totalGeneral)}</span>
-      <span style="color:var(--success);">✅ Envoyé : ${fmt(totalEnvoye)}</span>
-      <span style="color:var(--danger);">⏳ Reste à envoyer : ${fmt(Math.max(0, totalGeneral - totalEnvoye))}</span>
-      ${nbEnAttente > 0 ? `<span style="color:orange;">⚠️ ${nbEnAttente} en attente</span>` : ''}`;
+      <span style="color:#1e293b;">📋 <strong>${all.length}</strong> commande(s)</span>
+      <span style="color:#4f46e5;font-weight:700;">💰 Total : ${fmt(totalGeneral)}</span>
+      <span style="color:#10b981;font-weight:600;">✅ Envoyé : ${fmt(totalEnvoye)}</span>
+      <span style="color:#ef4444;font-weight:600;">⏳ Reste : ${fmt(Math.max(0, totalGeneral - totalEnvoye))}</span>
+      ${nbEnAttente > 0 ? `<span style="color:#f59e0b;font-weight:600;">⚠️ ${nbEnAttente} en attente</span>` : ''}`;
   }
 
   if (!list.length) {
@@ -3681,8 +3681,8 @@ function renderCommandes() {
       <td>${modelesHtml}</td>
       <td style="font-weight:700;color:var(--primary);">${fmt(totalCommande)}</td>
       <td>
-        <span style="color:${(c.montantEnvoye||0)>0?'var(--success)':'#888'};">${fmt(c.montantEnvoye||0)}</span>
-        ${reste > 0 ? `<div style="font-size:0.75rem;color:var(--danger);">Reste : ${fmt(reste)}</div>` : ''}
+        <span style="color:${(c.montantEnvoye||0)>0?'#10b981':'#64748b'};font-weight:600;">${fmt(c.montantEnvoye||0)}</span>
+        ${reste > 0 ? `<div style="font-size:0.75rem;color:#ef4444;">Reste : ${fmt(reste)}</div>` : ''}
       </td>
       <td style="font-size:0.82rem;">${c.dateEnvoi || '—'}</td>
       <td><span class="badge badge-${col}">${c.statut}</span></td>

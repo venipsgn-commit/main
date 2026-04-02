@@ -3652,12 +3652,25 @@ function renderCommandes() {
   const summaryBar     = document.getElementById('commandesSummaryBar');
   if (summaryBar) {
     summaryBar.style.display = all.length ? 'flex' : 'none';
+    const reste = Math.max(0, totalGeneral - totalEnvoye);
     summaryBar.innerHTML = `
-      <span style="color:#1e293b;">📋 <strong>${all.length}</strong> commande(s)</span>
-      <span style="color:#4f46e5;font-weight:700;">💰 Total : ${fmt(totalGeneral)}</span>
-      <span style="color:#10b981;font-weight:600;">✅ Envoyé : ${fmt(totalEnvoye)}</span>
-      <span style="color:#ef4444;font-weight:600;">⏳ Reste : ${fmt(Math.max(0, totalGeneral - totalEnvoye))}</span>
-      ${nbEnAttente > 0 ? `<span style="color:#f59e0b;font-weight:600;">⚠️ ${nbEnAttente} en attente</span>` : ''}`;
+      <div class="summary-card blue">
+        <span>Commandes</span>
+        <strong>${all.length}</strong>
+      </div>
+      <div class="summary-card purple">
+        <span>Total commandes</span>
+        <strong>${fmt(totalGeneral)}</strong>
+      </div>
+      <div class="summary-card green">
+        <span>Montant envoyé</span>
+        <strong>${fmt(totalEnvoye)}</strong>
+      </div>
+      <div class="summary-card ${reste > 0 ? 'red' : 'green'}">
+        <span>Reste à envoyer</span>
+        <strong>${fmt(reste)}</strong>
+      </div>
+      ${nbEnAttente > 0 ? `<div class="summary-card orange"><span>En attente</span><strong>${nbEnAttente}</strong></div>` : ''}`;
   }
 
   if (!list.length) {

@@ -833,11 +833,12 @@
       </select>
       <input type="text" id="filterCommande" class="filter-input" placeholder="🔍 Produit…" />
     </div>
+    <div id="commandesSummaryBar" style="display:none;margin-bottom:12px;padding:12px 16px;background:var(--bg-alt,#f8f9fa);border-radius:10px;border:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;align-items:center;font-size:0.9rem;"></div>
     <div class="card">
       <div class="table-wrap">
         <table class="data-table">
           <thead>
-            <tr><th>Date</th><th>Fournisseur</th><th>Modèles commandés</th><th>Total</th><th>Montant envoyé</th><th>Date envoi</th><th>Remis à</th><th>Statut</th><th>Actions</th></tr>
+            <tr><th>Date</th><th>Fournisseur</th><th>Vendeur</th><th>Transiteur</th><th>Modèles commandés</th><th>Total</th><th>Montant envoyé</th><th>Date envoi</th><th>Remis à</th><th>Statut</th><th>Actions</th></tr>
           </thead>
           <tbody id="commandesBody"></tbody>
         </table>
@@ -1455,6 +1456,16 @@
         <div class="form-group">
           <label>Date Réception</label>
           <input type="date" id="cmd-dateReception" />
+        </div>
+        <div class="form-group">
+          <label>Vendeur (responsable commande)</label>
+          <select id="cmd-vendeur">
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Transiteur</label>
+          <input type="text" id="cmd-transiteur" placeholder="Nom du transiteur..." />
         </div>
       </div>
 

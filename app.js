@@ -3645,8 +3645,23 @@ function renderCommandes() {
            (c.produit || '').toLowerCase().includes(search);
   });
   list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  // Calcul des totaux pour la barre de résumé
+  const totalGeneral   = all.reduce((s, c) => { const lg = _cmdParseProduits(c); return s + (lg.reduce((a,l)=>a+(l.qte*l.prixUnitaire),0)||c.montant||0); }, 0);
+  const totalEnvoye    = all.reduce((s, c) => s + (c.montantEnvoye || 0), 0);
+  const nbEnAttente    = all.filter(c => c.statut === 'En attente').length;
+  const summaryBar     = document.getElementById('commandesSummaryBar');
+  if (summaryBar) {
+    summaryBar.style.display = all.length ? 'flex' : 'none';
+    summaryBar.innerHTML = `
+      <span>📋 <strong>${all.length}</strong> commande(s)</span>
+      <span style="color:var(--primary);font-weight:700;">💰 Total : ${fmt(totalGeneral)}</span>
+      <span style="color:var(--success);">✅ Envoyé : ${fmt(totalEnvoye)}</span>
+      <span style="color:var(--danger);">⏳ Reste à envoyer : ${fmt(Math.max(0, totalGeneral - totalEnvoye))}</span>
+      ${nbEnAttente > 0 ? `<span style="color:orange;">⚠️ ${nbEnAttente} en attente</span>` : ''}`;
+  }
+
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
     return;
   }
   const statutColor = { 'En attente': 'orange', 'Reçue': 'green', 'Annulée': 'red' };
@@ -3662,6 +3677,8 @@ function renderCommandes() {
     return `<tr>
       <td>${c.date || '—'}</td>
       <td><strong>${fournisseurNom}</strong></td>
+      <td style="font-size:0.82rem;">${c.vendeur ? `<span class="badge badge-blue">${c.vendeur}</span>` : '—'}</td>
+      <td style="font-size:0.82rem;">${c.transiteur || '—'}</td>
       <td>${modelesHtml}</td>
       <td style="font-weight:600;">${fmt(totalCommande)}</td>
       <td>
@@ -3791,12 +3808,13 @@ function _fillCommandeFournisseur() {
     foSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
       fourn.map(f => `<option value="${f.id}">${f.nom}</option>`).join('');
   }
+  const vendeurs = DB.getAll('vendeurs');
+  const vendOptions = '<option value="">-- Sélectionner --</option>' +
+    vendeurs.map(v => `<option value="${v.nom}">${v.nom}</option>`).join('');
   const recuSel = document.getElementById('cmd-recuPar');
-  if (recuSel) {
-    const vendeurs = DB.getAll('vendeurs');
-    recuSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
-      vendeurs.map(v => `<option value="${v.nom}">${v.nom}</option>`).join('');
-  }
+  if (recuSel) recuSel.innerHTML = vendOptions;
+  const vendSel = document.getElementById('cmd-vendeur');
+  if (vendSel) vendSel.innerHTML = vendOptions;
 }
 
 function openAddCommande() {
@@ -3811,6 +3829,8 @@ function openAddCommande() {
   document.getElementById('cmd-montantEnvoye').value  = '0';
   document.getElementById('cmd-dateEnvoi').value      = '';
   document.getElementById('cmd-recuPar').value        = '';
+  document.getElementById('cmd-vendeur').value        = '';
+  document.getElementById('cmd-transiteur').value     = '';
   document.getElementById('cmd-notes').value          = '';
   document.getElementById('cmdLignesBody').innerHTML  = '';
   cmdAddLigne();
@@ -3831,6 +3851,8 @@ function openEditCommande(id) {
   document.getElementById('cmd-montantEnvoye').value  = c.montantEnvoye || 0;
   document.getElementById('cmd-dateEnvoi').value      = c.dateEnvoi     || '';
   document.getElementById('cmd-recuPar').value        = c.recuPar       || '';
+  document.getElementById('cmd-vendeur').value        = c.vendeur       || '';
+  document.getElementById('cmd-transiteur').value     = c.transiteur    || '';
   document.getElementById('cmd-notes').value          = c.notes         || '';
   document.getElementById('cmdLignesBody').innerHTML  = '';
   const lignes = _cmdParseProduits(c);
@@ -3893,6 +3915,8 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
     montantEnvoye,
     dateEnvoi,
     recuPar:       document.getElementById('cmd-recuPar').value || null,
+    vendeur:       document.getElementById('cmd-vendeur').value || null,
+    transiteur:    document.getElementById('cmd-transiteur').value.trim() || null,
     statut:        nouveauStatut,
     dateReception: nouveauStatut === 'Reçue' ? (dateReception || new Date().toISOString().slice(0,10)) : dateReception,
     notes:         document.getElementById('cmd-notes').value.trim() || null,

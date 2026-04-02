@@ -3661,7 +3661,7 @@ function renderCommandes() {
   }
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune commande</p></div></td></tr>`;
     return;
   }
   const statutColor = { 'En attente': 'orange', 'Reçue': 'green', 'Annulée': 'red' };
@@ -3677,7 +3677,6 @@ function renderCommandes() {
     return `<tr>
       <td>${c.date || '—'}</td>
       <td><strong>${fournisseurNom}</strong></td>
-      <td style="font-size:0.82rem;">${c.vendeur ? `<span class="badge badge-blue">${c.vendeur}</span>` : '—'}</td>
       <td style="font-size:0.82rem;">${c.transiteur || '—'}</td>
       <td>${modelesHtml}</td>
       <td style="font-weight:600;">${fmt(totalCommande)}</td>
@@ -3809,12 +3808,9 @@ function _fillCommandeFournisseur() {
       fourn.map(f => `<option value="${f.id}">${f.nom}</option>`).join('');
   }
   const vendeurs = DB.getAll('vendeurs');
-  const vendOptions = '<option value="">-- Sélectionner --</option>' +
-    vendeurs.map(v => `<option value="${v.nom}">${v.nom}</option>`).join('');
   const recuSel = document.getElementById('cmd-recuPar');
-  if (recuSel) recuSel.innerHTML = vendOptions;
-  const vendSel = document.getElementById('cmd-vendeur');
-  if (vendSel) vendSel.innerHTML = vendOptions;
+  if (recuSel) recuSel.innerHTML = '<option value="">-- Sélectionner --</option>' +
+    vendeurs.map(v => `<option value="${v.nom}">${v.nom}</option>`).join('');
 }
 
 function openAddCommande() {
@@ -3829,7 +3825,6 @@ function openAddCommande() {
   document.getElementById('cmd-montantEnvoye').value  = '0';
   document.getElementById('cmd-dateEnvoi').value      = '';
   document.getElementById('cmd-recuPar').value        = '';
-  document.getElementById('cmd-vendeur').value        = '';
   document.getElementById('cmd-transiteur').value     = '';
   document.getElementById('cmd-notes').value          = '';
   document.getElementById('cmdLignesBody').innerHTML  = '';
@@ -3851,7 +3846,6 @@ function openEditCommande(id) {
   document.getElementById('cmd-montantEnvoye').value  = c.montantEnvoye || 0;
   document.getElementById('cmd-dateEnvoi').value      = c.dateEnvoi     || '';
   document.getElementById('cmd-recuPar').value        = c.recuPar       || '';
-  document.getElementById('cmd-vendeur').value        = c.vendeur       || '';
   document.getElementById('cmd-transiteur').value     = c.transiteur    || '';
   document.getElementById('cmd-notes').value          = c.notes         || '';
   document.getElementById('cmdLignesBody').innerHTML  = '';
@@ -3915,7 +3909,6 @@ document.getElementById('saveCommande')?.addEventListener('click', async () => {
     montantEnvoye,
     dateEnvoi,
     recuPar:       document.getElementById('cmd-recuPar').value || null,
-    vendeur:       document.getElementById('cmd-vendeur').value || null,
     transiteur:    document.getElementById('cmd-transiteur').value.trim() || null,
     statut:        nouveauStatut,
     dateReception: nouveauStatut === 'Reçue' ? (dateReception || new Date().toISOString().slice(0,10)) : dateReception,

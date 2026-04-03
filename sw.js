@@ -1,13 +1,13 @@
 'use strict';
 
-const CACHE_NAME = 'venips-v2';
+const CACHE_NAME = 'venips-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
   '/manifest.json',
-  '/logo.svg',
+  '/venips-logo.png',
   '/offline-creds.json',
 ];
 

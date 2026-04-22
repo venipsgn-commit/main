@@ -148,6 +148,8 @@ const AUTH = {
       document.getElementById('btnAddStock').style.display = 'none';
       if (stockSummaryCards[2]) stockSummaryCards[2].style.display = 'none';
       if (btnBackup) btnBackup.style.display = 'none';
+      const stockStatusSel = document.getElementById('filterStockStatus');
+      if (stockStatusSel && !stockStatusSel.value) stockStatusSel.value = 'EnStock';
     } else {
       document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
       if (btnBackup) btnBackup.style.display = '';
@@ -1317,6 +1319,7 @@ function renderStock() {
     if (statusFilter === 'Rupture') return r === 0;
     if (statusFilter === 'Faible')  return r > 0 && r <= seuil;
     if (statusFilter === 'Disponible') return r > seuil;
+    if (statusFilter === 'EnStock')    return r > 0;
     return true;
   });
   if (catFilter)    stock = stock.filter(p => (p.categorie || '') === catFilter);
@@ -2814,7 +2817,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('filterStockCategorie').addEventListener('change', renderStock);
   document.getElementById('filterStockSearch').addEventListener('input', debounce(renderStock));
   document.getElementById('filterStockReset').addEventListener('click', () => {
-    document.getElementById('filterStockStatus').value = '';
+    document.getElementById('filterStockStatus').value = AUTH.isAdmin() ? '' : 'EnStock';
     document.getElementById('filterStockCategorie').value = '';
     document.getElementById('filterStockSearch').value = '';
     renderStock();

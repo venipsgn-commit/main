@@ -2077,3 +2077,21 @@ body.dark .mobile-search-input { background: #1e293b; border-color: #334155; col
 @media (max-width: 768px) {
   .mobile-search-btn { display: flex; }
 }
+
+/* Empêche le zoom automatique iOS/Android lors du focus sur un champ
+   (déclenché quand font-size < 16px sur mobile) */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea,
+  .input-sm,
+  .filter-input,
+  .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .chatbot-input-bar input,
+  .global-search-input,
+  .mobile-search-input {
+    font-size: 16px !important;
+  }
+}

@@ -902,7 +902,7 @@ function renderVentes() {
   if (searchFilter)  ventes = ventes.filter(v => v.produit.toLowerCase().includes(searchFilter));
   if (vendeurFilter) ventes = ventes.filter(v => (v.vendeur || '') === vendeurFilter);
 
-  ventes.sort((a, b) => new Date(b.date) - new Date(a.date));
+  ventes.sort((a, b) => (b.id || 0) - (a.id || 0));
 
   // Stats
   const totalCA   = ventes.reduce((s, v) => s + round(v.pv * v.qty), 0);
@@ -1323,7 +1323,7 @@ function renderStock() {
   if (searchFilter) stock = stock.filter(p => p.nom.toLowerCase().includes(searchFilter));
 
   _fillCategoriesList();
-  stock.sort((a, b) => a.nom.localeCompare(b.nom));
+  stock.sort((a, b) => (b.id || 0) - (a.id || 0));
 
   const allStock = DB.getAll('stock');
   const dispo   = allStock.filter(p => getRestant(p) > (p.seuilAlerte ?? 5)).length;
@@ -1494,7 +1494,7 @@ function saveStock() {
 
 
 function renderVendeurs() {
-  const vendeurs = DB.getAll('vendeurs');
+  const vendeurs = DB.getAll('vendeurs').sort((a, b) => (b.id || 0) - (a.id || 0));
   const ventes = DB.getAll('ventes');
   const tbody = document.getElementById('vendeursBody');
 
@@ -1616,7 +1616,7 @@ function renderCharges() {
 
   // Filtre par mois
   let charges = monthFilter ? allCharges.filter(c => ym(c.date) === monthFilter) : allCharges;
-  charges.sort((a, b) => new Date(b.date) - new Date(a.date));
+  charges.sort((a, b) => (b.id || 0) - (a.id || 0));
 
   const typeColors = { Courant: 'info', Location: 'warning', Réparation: 'danger', Salaire: 'success', Autre: '' };
   function buildRows(list, tbodyId, pageBarId, pageKey) {
@@ -1712,7 +1712,7 @@ function renderDettes() {
 
   if (typeFilter) dettes = dettes.filter(d => d.type === typeFilter);
   if (statusFilter) dettes = dettes.filter(d => d.statut === statusFilter);
-  dettes.sort((a, b) => new Date(b.date) - new Date(a.date));
+  dettes.sort((a, b) => (b.id || 0) - (a.id || 0));
 
   const tbody = document.getElementById('dettesBody');
   const paginEl = document.getElementById('dettesPageBar');
@@ -1838,7 +1838,7 @@ function renderCreances() {
 
   if (vendeurFilter) creances = creances.filter(c => c.vendeur === vendeurFilter);
   if (statutFilter)  creances = creances.filter(c => c.statut === statutFilter);
-  creances.sort((a, b) => new Date(b.date) - new Date(a.date));
+  creances.sort((a, b) => (b.id || 0) - (a.id || 0));
 
   const tbody   = document.getElementById('creancesBody');
   const paginEl = document.getElementById('creancesPageBar');
@@ -1956,7 +1956,7 @@ function renderDefectueux() {
   if (monthFilter)  items = items.filter(d => ym(d.date) === monthFilter);
   if (statutFilter) items = items.filter(d => d.statut === statutFilter);
   if (searchFilter) items = items.filter(d => d.produit.toLowerCase().includes(searchFilter));
-  items.sort((a, b) => new Date(b.date) - new Date(a.date));
+  items.sort((a, b) => (b.id || 0) - (a.id || 0));
 
   const tbody   = document.getElementById('defectueuxBody');
   const paginEl = document.getElementById('defectueuxPageBar');
@@ -3470,7 +3470,8 @@ function renderFournisseurs() {
   const search = (document.getElementById('filterFournisseur')?.value || '').toLowerCase();
   const tbody  = document.getElementById('fournisseursBody');
   if (!tbody) return;
-  const list = search ? all.filter(f => (f.nom || '').toLowerCase().includes(search)) : all;
+  const list = (search ? all.filter(f => (f.nom || '').toLowerCase().includes(search)) : all)
+    .sort((a, b) => (b.id || 0) - (a.id || 0));
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🏭</div><p>Aucun fournisseur</p></div></td></tr>`;
     return;
@@ -3549,7 +3550,8 @@ function renderClients() {
   const search = (document.getElementById('filterClient')?.value || '').toLowerCase();
   const tbody  = document.getElementById('clientsBody');
   if (!tbody) return;
-  const list = search ? all.filter(c => (c.nom || '').toLowerCase().includes(search)) : all;
+  const list = (search ? all.filter(c => (c.nom || '').toLowerCase().includes(search)) : all)
+    .sort((a, b) => (b.id || 0) - (a.id || 0));
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👥</div><p>Aucun client</p></div></td></tr>`;
     return;
@@ -3644,7 +3646,7 @@ function renderCommandes() {
     return lignes.some(l => (l.produit || '').toLowerCase().includes(search)) ||
            (c.produit || '').toLowerCase().includes(search);
   });
-  list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  list = [...list].sort((a, b) => (b.id || 0) - (a.id || 0));
   // Calcul des totaux pour la barre de résumé
   const totalGeneral   = all.reduce((s, c) => { const lg = _cmdParseProduits(c); return s + (lg.reduce((a,l)=>a+(l.qte*l.prixUnitaire),0)||c.montant||0); }, 0);
   const totalEnvoye    = all.reduce((s, c) => s + (c.montantEnvoye || 0), 0);
@@ -3999,7 +4001,7 @@ function renderObjectifs() {
   if (!tbody) return;
   const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n || 0)) + ' GNF';
   const list = [...(periode ? all.filter(o => o.periode === periode) : all)]
-                 .sort((a, b) => b.periode.localeCompare(a.periode));
+                 .sort((a, b) => (b.id || 0) - (a.id || 0));
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🎯</div><p>Aucun objectif défini</p></div></td></tr>`;
     return;
@@ -4100,7 +4102,7 @@ function renderRetours() {
   let list = all;
   if (statut) list = list.filter(r => r.statut === statut);
   if (search) list = list.filter(r => (r.produit || '').toLowerCase().includes(search));
-  list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  list = [...list].sort((a, b) => (b.id || 0) - (a.id || 0));
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">↩️</div><p>Aucun retour</p></div></td></tr>`;
     return;
@@ -4195,7 +4197,7 @@ function renderInventaires() {
   let list = all;
   if (dateF)  list = list.filter(i => i.date === dateF);
   if (search) list = list.filter(i => (i.produit || '').toLowerCase().includes(search));
-  list = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  list = [...list].sort((a, b) => (b.id || 0) - (a.id || 0));
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔍</div><p>Aucun inventaire</p></div></td></tr>`;
     return;

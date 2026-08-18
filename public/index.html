@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VENIPS Tech – Boutique Informatique</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<!-- ── NOTIFICATION BANNER ── -->
+<div id="notifBanner" class="notif-banner">
+  <span>🔥 Livraison gratuite à Conakry pour toute commande &gt; 500 000 GNF</span>
+  <button onclick="document.getElementById('notifBanner').style.display='none'">×</button>
+</div>
+
+<!-- ── HEADER ── -->
+<header class="header" id="header">
+  <div class="header-inner">
+    <a href="#" class="logo" onclick="showPage('home')">
+      <span class="logo-icon">⚡</span>
+      <span class="logo-text">VENIPS<span class="logo-accent">Tech</span></span>
+    </a>
+
+    <div class="search-wrap">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Rechercher un ordinateur, accessoire…" autocomplete="off" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+
+    <nav class="nav-right">
+      <button class="theme-toggle" id="themeToggle" title="Mode sombre/clair">🌙</button>
+      <button class="nav-btn" onclick="showPage('account')">
+        <span>👤</span>
+        <span class="nav-label">Compte</span>
+      </button>
+      <button class="nav-btn cart-btn" onclick="toggleCart()">
+        <span>🛒</span>
+        <span class="nav-label">Panier</span>
+        <span class="cart-badge" id="cartBadge">0</span>
+      </button>
+    </nav>
+    <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+  </div>
+
+  <nav class="category-nav" id="categoryNav">
+    <a href="#" onclick="filterCategory('')">Tout</a>
+    <a href="#" onclick="filterCategory('Laptop')">💻 Laptops</a>
+    <a href="#" onclick="filterCategory('Desktop')">🖥️ Desktops</a>
+    <a href="#" onclick="filterCategory('Moniteur')">📺 Moniteurs</a>
+    <a href="#" onclick="filterCategory('Accessoire')">🎮 Accessoires</a>
+  </nav>
+</header>
+
+<!-- ── CART DRAWER ── -->
+<div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+<div class="cart-drawer" id="cartDrawer">
+  <div class="cart-header">
+    <h3>🛒 Mon Panier</h3>
+    <button onclick="toggleCart()">×</button>
+  </div>
+  <div class="cart-items" id="cartItems">
+    <div class="cart-empty">
+      <div style="font-size:3rem">🛒</div>
+      <p>Votre panier est vide</p>
+      <button class="btn-primary" onclick="showPage('shop');toggleCart()">Découvrir nos produits</button>
+    </div>
+  </div>
+  <div class="cart-footer" id="cartFooter" style="display:none">
+    <div class="cart-total">
+      <span>Total</span>
+      <strong id="cartTotalAmt">0 GNF</strong>
+    </div>
+    <div class="cart-total" style="font-size:.8rem;color:var(--muted)">
+      <span>Livraison</span>
+      <span id="cartShipping">À calculer</span>
+    </div>
+    <button class="btn-primary btn-full" onclick="showPage('checkout');toggleCart()">Passer la commande →</button>
+  </div>
+</div>
+
+<!-- ── PAGES ── -->
+<main id="app">
+
+  <!-- HOME PAGE -->
+  <div class="page active" id="page-home">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-content">
+        <div class="hero-badge">🔥 Nouvelles arrivées</div>
+        <h1 class="hero-title">Les meilleurs<br/><span class="gradient-text">ordinateurs</span><br/>à portée de main</h1>
+        <p class="hero-subtitle">MacBook, Dell XPS, ASUS ROG, PC Gaming… Tout ce qu'il faut pour travailler, créer et jouer.</p>
+        <div class="hero-actions">
+          <button class="btn-primary btn-lg" onclick="showPage('shop')">Voir la boutique</button>
+          <button class="btn-ghost btn-lg" onclick="showPage('shop');filterCategory('Laptop')">💻 Laptops</button>
+        </div>
+        <div class="hero-stats">
+          <div class="stat"><strong>500+</strong><span>Produits</span></div>
+          <div class="stat-div"></div>
+          <div class="stat"><strong>1000+</strong><span>Clients satisfaits</span></div>
+          <div class="stat-div"></div>
+          <div class="stat"><strong>5★</strong><span>Note moyenne</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-img-wrap">
+          <img src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&q=80" alt="MacBook Pro" class="hero-img" />
+          <div class="hero-float hero-float-1">
+            <span>⭐ 4.9</span>
+            <span>MacBook M3</span>
+          </div>
+          <div class="hero-float hero-float-2">
+            <span>🚚</span>
+            <span>Livraison Conakry</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categories -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Catégories</h2>
+        <a href="#" onclick="showPage('shop')">Tout voir →</a>
+      </div>
+      <div class="categories-grid">
+        <div class="cat-card" onclick="filterCategory('Laptop')">
+          <div class="cat-icon">💻</div>
+          <h3>Laptops</h3>
+          <p>MacBook, XPS, ROG…</p>
+        </div>
+        <div class="cat-card" onclick="filterCategory('Desktop')">
+          <div class="cat-icon">🖥️</div>
+          <h3>Desktops</h3>
+          <p>PC Gaming, Mac Mini…</p>
+        </div>
+        <div class="cat-card" onclick="filterCategory('Moniteur')">
+          <div class="cat-icon">📺</div>
+          <h3>Moniteurs</h3>
+          <p>4K, 240Hz, OLED…</p>
+        </div>
+        <div class="cat-card" onclick="filterCategory('Accessoire')">
+          <div class="cat-icon">🎮</div>
+          <h3>Accessoires</h3>
+          <p>Claviers, souris, SSD…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Featured Products -->
+    <section class="section">
+      <div class="section-header">
+        <h2>⭐ Produits vedettes</h2>
+        <a href="#" onclick="showPage('shop')">Tout voir →</a>
+      </div>
+      <div class="products-grid" id="featuredProducts">
+        <div class="skeleton-grid">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Promo Banner -->
+    <section class="promo-banner">
+      <div class="promo-content">
+        <h2>📱 Payez avec Mobile Money</h2>
+        <p>Orange Money, MTN Money — Paiement sécurisé, confirmation instantanée</p>
+        <button class="btn-white" onclick="showPage('shop')">Commander maintenant</button>
+      </div>
+      <div class="promo-icons">
+        <div class="pay-icon">🟠 Orange Money</div>
+        <div class="pay-icon">🟡 MTN Money</div>
+        <div class="pay-icon">💳 Carte Bancaire</div>
+        <div class="pay-icon">🚚 Paiement livraison</div>
+      </div>
+    </section>
+
+    <!-- All Products -->
+    <section class="section">
+      <div class="section-header">
+        <h2>🔥 Tous les produits</h2>
+        <a href="#" onclick="showPage('shop')">Voir tout →</a>
+      </div>
+      <div class="products-grid" id="homeAllProducts"></div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="section testimonials-section">
+      <div class="section-header"><h2>💬 Avis clients</h2></div>
+      <div class="reviews-grid">
+        <div class="review-card">
+          <div class="review-stars">⭐⭐⭐⭐⭐</div>
+          <p>"MacBook Pro livré en 24h à Conakry. Emballage parfait, produit authentique. Je recommande !"</p>
+          <div class="reviewer"><strong>Mamadou D.</strong><span>Conakry</span></div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars">⭐⭐⭐⭐⭐</div>
+          <p>"PC Gaming commandé avec Orange Money, confirmation immédiate. Livraison le lendemain. Top !"</p>
+          <div class="reviewer"><strong>Fatoumata K.</strong><span>Ratoma</span></div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars">⭐⭐⭐⭐⭐</div>
+          <p>"Service client réactif. J'ai eu un problème avec ma commande, réglé en 1h. Bravo VENIPS Tech !"</p>
+          <div class="reviewer"><strong>Ibrahim S.</strong><span>Kaloum</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- SHOP PAGE -->
+  <div class="page" id="page-shop">
+    <div class="shop-layout">
+      <!-- Filters sidebar -->
+      <aside class="filters-panel" id="filtersPanel">
+        <div class="filters-header">
+          <h3>Filtres</h3>
+          <button onclick="clearFilters()" class="clear-btn">Effacer</button>
+        </div>
+
+        <div class="filter-group">
+          <label>Catégorie</label>
+          <div class="filter-chips" id="filterCats">
+            <button class="chip active" data-cat="">Tout</button>
+            <button class="chip" data-cat="Laptop">💻 Laptops</button>
+            <button class="chip" data-cat="Desktop">🖥️ Desktops</button>
+            <button class="chip" data-cat="Moniteur">📺 Moniteurs</button>
+            <button class="chip" data-cat="Accessoire">🎮 Accessoires</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label>Marque</label>
+          <div class="filter-chips">
+            <button class="chip" data-brand="Apple">Apple</button>
+            <button class="chip" data-brand="Dell">Dell</button>
+            <button class="chip" data-brand="ASUS">ASUS</button>
+            <button class="chip" data-brand="HP">HP</button>
+            <button class="chip" data-brand="Lenovo">Lenovo</button>
+            <button class="chip" data-brand="Samsung">Samsung</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label>Prix maximum : <strong id="priceLabel">20 000 000 GNF</strong></label>
+          <input type="range" id="priceRange" min="0" max="20000000" step="500000" value="20000000" oninput="updatePriceFilter(this.value)" />
+        </div>
+
+        <div class="filter-group">
+          <label>Trier par</label>
+          <select id="sortSelect" onchange="applyFilters()">
+            <option value="newest">Plus récents</option>
+            <option value="price_asc">Prix croissant</option>
+            <option value="price_desc">Prix décroissant</option>
+            <option value="rating">Mieux notés</option>
+          </select>
+        </div>
+      </aside>
+
+      <!-- Product area -->
+      <div class="shop-main">
+        <div class="shop-toolbar">
+          <div>
+            <h2 id="shopTitle">Tous les produits</h2>
+            <span class="product-count" id="productCount">0 produits</span>
+          </div>
+          <button class="filter-mobile-btn" onclick="document.getElementById('filtersPanel').classList.toggle('open')">⚙️ Filtres</button>
+        </div>
+        <div class="products-grid" id="shopProducts">
+          <div class="loading-spinner">⏳ Chargement…</div>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCT DETAIL PAGE -->
+  <div class="page" id="page-product">
+    <div class="product-detail" id="productDetail"></div>
+  </div>
+
+  <!-- CART PAGE -->
+  <div class="page" id="page-cart">
+    <div class="cart-page">
+      <h2>🛒 Mon Panier</h2>
+      <div class="cart-page-layout">
+        <div class="cart-page-items" id="cartPageItems"></div>
+        <div class="cart-page-summary" id="cartSummary"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHECKOUT PAGE -->
+  <div class="page" id="page-checkout">
+    <div class="checkout-wrap">
+      <h2>💳 Finaliser ma commande</h2>
+      <div class="checkout-layout">
+        <form class="checkout-form" id="checkoutForm" onsubmit="submitOrder(event)">
+          <div class="form-section">
+            <h3>👤 Vos informations</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nom complet *</label>
+                <input type="text" id="co-name" required placeholder="Mamadou Diallo" />
+              </div>
+              <div class="form-group">
+                <label>Téléphone *</label>
+                <input type="tel" id="co-phone" required placeholder="+224 620 000 000" />
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="co-email" placeholder="email@exemple.com" />
+              </div>
+              <div class="form-group">
+                <label>Ville de livraison *</label>
+                <select id="co-city" required>
+                  <option value="">-- Choisir --</option>
+                  <option>Conakry</option>
+                  <option>Kankan</option>
+                  <option>Labé</option>
+                  <option>N'Zérékoré</option>
+                  <option>Kindia</option>
+                  <option>Autre</option>
+                </select>
+              </div>
+              <div class="form-group full">
+                <label>Adresse de livraison *</label>
+                <input type="text" id="co-address" required placeholder="Quartier, rue…" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>💳 Mode de paiement</h3>
+            <div class="payment-methods">
+              <label class="pay-method">
+                <input type="radio" name="payment" value="orange_money" required />
+                <div class="pay-card">
+                  <span class="pay-logo">🟠</span>
+                  <div><strong>Orange Money</strong><small>Paiement instantané</small></div>
+                </div>
+              </label>
+              <label class="pay-method">
+                <input type="radio" name="payment" value="mtn_money" />
+                <div class="pay-card">
+                  <span class="pay-logo">🟡</span>
+                  <div><strong>MTN Money</strong><small>Paiement instantané</small></div>
+                </div>
+              </label>
+              <label class="pay-method">
+                <input type="radio" name="payment" value="carte" />
+                <div class="pay-card">
+                  <span class="pay-logo">💳</span>
+                  <div><strong>Carte bancaire</strong><small>Visa / Mastercard</small></div>
+                </div>
+              </label>
+              <label class="pay-method">
+                <input type="radio" name="payment" value="livraison" />
+                <div class="pay-card">
+                  <span class="pay-logo">🚚</span>
+                  <div><strong>Paiement à la livraison</strong><small>Espèces à la réception</small></div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-group">
+              <label>Notes / Instructions de livraison</label>
+              <textarea id="co-notes" rows="3" placeholder="Précisions pour le livreur…"></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary btn-full btn-lg">
+            ✅ Confirmer la commande
+          </button>
+        </form>
+
+        <div class="checkout-summary" id="checkoutSummary"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNT PAGE -->
+  <div class="page" id="page-account">
+    <div class="auth-wrap">
+      <div class="auth-card" id="loginCard">
+        <h2>👤 Connexion</h2>
+        <form onsubmit="login(event)">
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="loginEmail" required placeholder="votre@email.com" />
+          </div>
+          <div class="form-group">
+            <label>Mot de passe</label>
+            <input type="password" id="loginPwd" required placeholder="••••••••" />
+          </div>
+          <div id="loginError" class="error-msg"></div>
+          <button type="submit" class="btn-primary btn-full">Se connecter</button>
+        </form>
+        <p class="auth-switch">Pas de compte ? <a href="#" onclick="showAuthPanel('register')">Créer un compte</a></p>
+      </div>
+
+      <div class="auth-card" id="registerCard" style="display:none">
+        <h2>✨ Créer un compte</h2>
+        <form onsubmit="register(event)">
+          <div class="form-group">
+            <label>Nom complet</label>
+            <input type="text" id="regName" required placeholder="Votre nom" />
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="regEmail" required placeholder="votre@email.com" />
+          </div>
+          <div class="form-group">
+            <label>Téléphone</label>
+            <input type="tel" id="regPhone" placeholder="+224 620 000 000" />
+          </div>
+          <div class="form-group">
+            <label>Mot de passe</label>
+            <input type="password" id="regPwd" required placeholder="••••••••" />
+          </div>
+          <div id="regError" class="error-msg"></div>
+          <button type="submit" class="btn-primary btn-full">Créer mon compte</button>
+        </form>
+        <p class="auth-switch">Déjà un compte ? <a href="#" onclick="showAuthPanel('login')">Se connecter</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER SUCCESS PAGE -->
+  <div class="page" id="page-success">
+    <div class="success-wrap">
+      <div class="success-icon">🎉</div>
+      <h2>Commande confirmée !</h2>
+      <p id="successMsg">Merci pour votre commande. Nous vous contacterons sous peu.</p>
+      <div class="success-order" id="successOrder"></div>
+      <button class="btn-primary" onclick="showPage('home')">Retour à la boutique</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── CHAT WIDGET ── -->
+<div class="chat-widget" id="chatWidget">
+  <div class="chat-window" id="chatWindow" style="display:none">
+    <div class="chat-header">
+      <span>💬 Chat VENIPS Tech</span>
+      <button onclick="toggleChat()">×</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg bot">Bonjour 👋 Comment puis-je vous aider ?</div>
+    </div>
+    <div class="chat-input-wrap">
+      <input type="text" id="chatInput" placeholder="Votre message…" onkeydown="if(event.key==='Enter')sendChat()" />
+      <button onclick="sendChat()">➤</button>
+    </div>
+  </div>
+  <button class="chat-btn" onclick="toggleChat()">💬</button>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── FOOTER ── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="logo-text">VENIPS<span class="logo-accent">Tech</span></span>
+      <p>La boutique informatique de référence en Guinée. Produits authentiques, livraison rapide.</p>
+      <div class="social-links">
+        <a href="#">📘</a><a href="#">📷</a><a href="#">🐦</a><a href="#">▶️</a>
+      </div>
+    </div>
+    <div class="footer-links">
+      <h4>Boutique</h4>
+      <a href="#" onclick="showPage('shop')">Tous les produits</a>
+      <a href="#" onclick="filterCategory('Laptop')">Laptops</a>
+      <a href="#" onclick="filterCategory('Desktop')">Desktops</a>
+      <a href="#" onclick="filterCategory('Accessoire')">Accessoires</a>
+    </div>
+    <div class="footer-links">
+      <h4>Support</h4>
+      <a href="#">📞 +224 620 000 000</a>
+      <a href="#">✉️ support@venipstech.com</a>
+      <a href="#">❓ FAQ</a>
+      <a href="#">🔄 Retours</a>
+    </div>
+    <div class="footer-links">
+      <h4>Paiements acceptés</h4>
+      <div class="pay-badges">
+        <span>🟠 Orange Money</span>
+        <span>🟡 MTN Money</span>
+        <span>💳 Visa</span>
+        <span>💳 Mastercard</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 VENIPS Tech · Tous droits réservés · Conakry, Guinée</p>
+  </div>
+</footer>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
